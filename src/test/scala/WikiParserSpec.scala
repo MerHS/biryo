@@ -1,0 +1,206 @@
+
+import net.kinetc.biryo.{NamuAST, WikiParser}
+import org.parboiled2._
+import org.specs2.mutable.Specification
+
+import scala.util.{Failure, Success, Try}
+
+class WikiParserSpec extends Specification {
+  type NM = NamuAST.NamuMark
+  type PG = NamuAST.Paragraph
+  val RS = NamuAST.RawString
+  val IS = NamuAST.InlineString
+  val NA = NamuAST
+
+  "WikiParser" should {
+    "parse Basic Characters" in {
+      var parser = new WikiParser("test")
+      parse(parser, parser.FetchChar.run()) === 't'
+
+      parser = new WikiParser("\\quoted")
+      parse(parser, parser.FetchChar.run()) === 'q'
+
+      parser = new WikiParser("qu\\o\n\\ted")
+      parse(parser, parser.NormalString.run()) === "quo\nted"
+
+      parser = new WikiParser("[\\]\\{[{}[]")
+      parse(parser, parser.StringExceptC('{').run()) === "[]{["
+
+      parser = new WikiParser("test\\testtest")
+      parse(parser, parser.StringExceptS("tt").run()) == "testtes"
+
+      parser = new WikiParser("block[link]")
+      parse(parser, parser.StringExceptSPred("[]").run()) === "block"
+
+      parser = new WikiParser("wit\\h\\quoted")
+      parse(parser, parser.StringExceptSPred("qo").run()) === "withqu"
+
+      parser = new WikiParser("Line String\n??")
+      parse(parser, parser.LineStringExceptC('?').run()) === "Line String"
+
+      parser = new WikiParser("No Match T_T")
+      parse(parser, parser.LineStringExceptS("nOWAY!!").run()) === "No Match T_T"
+
+      parser = new WikiParser("make one\n line")
+      parse(parser, parser.LineString.run()) == "make one"
+    }
+
+    "parse One-Liners" in {
+      var parser = new WikiParser("##Comment ##Check")
+      parse(parser, parser.Comment.run()) === NA.Comment("Comment ##Check")
+      parseAll("test ##0000\n##comment\n ##COMM\n#end") === paraMaker(
+        RS("test ##0000"),
+        NA.Comment("comment"),
+        RS(" ##COMM"),
+        RS("#end")
+      )
+
+      parser = new WikiParser("----------")
+      parse(parser, parser.HR.run()) === NA.HR
+      parseAll("HR\n----\n----------\n--\n-----------\n------------") === paraMaker(
+        RS("HR"), NA.HR, NA.HR, RS("--"),
+        paraMaker(NA.Strike(RS("")), NA.Strike(RS("")), RS("---")),
+        paraMaker(NA.Strike(RS("")), NA.Strike(RS("")),NA.Strike(RS("")))
+      )
+
+      parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test "), 2)
+      parseAll("== {{{ test }}} ==\n") === NA.RawHeadings(IS(" test "), 2)
+      parseAll("=== {{{ test }}} ==") ===
+        paraMaker(RS("=== "), IS(" test "), RS(" =="))
+
+      parseAll("= {{{ test }}} ==") ===
+        paraMaker(RS("= "), IS(" test "), RS(" =="))
+
+      parseAll("== {{{ test }}} ==5") ===
+        paraMaker(RS("== "), IS(" test "), RS(" ==5"))
+    }
+
+    "parse Basic Blocks" in {
+      var parser = new WikiParser("--strike--")
+      parse(parser, parser.StrikeMinus.run()) === NA.Strike(RS("strike"))
+
+      // failsafe
+      parser = new WikiParser(" -- ")
+      parse(parser, parser.LineTerm.run()) == RS(" -- ")
+
+      parser = new WikiParser("block -- strike -- and ^^sup^^")
+      parse(parser, parser.LineTerm.run()) ===
+        paraMaker(
+          RS("block "),
+          NA.Strike(RS(" strike ")),
+          RS(" and "),
+          NA.Sup(RS("sup"))
+        )
+
+      parser = new WikiParser("''' bold in '' italic in __underline__'' '''")
+      parse(parser, parser.LineTerm.run()) ===
+        NA.Bold(
+          paraMaker(
+            RS(" bold in "),
+            NA.Italic(
+              paraMaker(
+                RS(" italic in "),
+                NA.Underline(RS("underline"))
+              )
+            ),
+            RS(" ")
+          )
+        )
+    }
+
+    "parse Curly Brace - RawBlock" in {
+      var parser = new WikiParser("{{{{\\{}}}}}")
+      parse(parser, parser.RawBlock.run()) === IS("{\\{}}")
+      parseAll("{{{{\\{}}}}}") === IS("{\\{}}")
+
+      parser = new WikiParser("block{\\{{{{ {\\{{te\nst}}} }}}")
+      parse(parser, parser.LineTerm.run()) === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} "))
+      parseAll("block{\\{{{{ {\\{{te\nst}}} }}}") === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} "))
+    }
+
+    "parse Curly Brace - SpanBlock" in {
+      var parser = new WikiParser("{{{+3 Plus3}}}")
+      parse(parser, parser.SpanBlock.run()) === NA.SizeBlock(RS("Plus3"), 3)
+      parseAll("{{{+3 Plus3}}}") === NA.SizeBlock(RS("Plus3"), 3)
+
+      parser = new WikiParser("{{{#red red color}}}")
+      parse(parser, parser.SpanBlock.run()) === NA.ColorBlock(RS("red color"), "red")
+      parseAll("{{{#red red color}}}") === NA.ColorBlock(RS("red color"), "red")
+
+      parser = new WikiParser("{{{#cafea1 cafe alpha}}}")
+      parse(parser, parser.SpanBlock.run()) === NA.ColorBlock(RS("cafe alpha"), "#cafea1")
+      parseAll("{{{#cafea1 cafe alpha}}}") === NA.ColorBlock(RS("cafe alpha"), "#cafea1")
+
+      parser = new WikiParser("{{{#F14 Tomcat}}}")
+      parse(parser, parser.SpanBlock.run()) === NA.ColorBlock(RS("Tomcat"), "#F14")
+      parseAll("{{{#F14 Tomcat}}}") === NA.ColorBlock(RS("Tomcat"), "#F14")
+    }
+
+    "parse Links" in {
+      var parser = new WikiParser("[[Simple Link]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Simple Link"), None)
+      parseAll("[[Simple Link]]") === NA.DocLink(NA.NormalHref("Simple Link"), None)
+
+      parser = new WikiParser("[[Basic|Link]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Basic"), Some(RS("Link")))
+      parseAll("[[Basic|Link]]") === NA.DocLink(NA.NormalHref("Basic"), Some(RS("Link")))
+
+      parser = new WikiParser("[[Non Basic\\|Link]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Non Basic|Link"), None)
+      parseAll("[[Non Basic\\|Link]]") === NA.DocLink(NA.NormalHref("Non Basic|Link"), None)
+
+      parser = new WikiParser("[[Basic Anchor#s-1.5.1]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.ParaHref("Basic Anchor", Vector[Int](1,5,1)), None)
+
+      parser = new WikiParser("[[Basic#anchor?]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.AnchorHref("Basic", "anchor?"), None)
+
+      parseAll("More is Better: [[Li\\]]nk#s-1.3|\\|\\]][[#s-anchor|in Link]]]]\n") ===
+        paraMaker(
+          RS("More is Better: "),
+          NA.DocLink(
+            NA.ParaHref("Li]]nk", Vector[Int](1, 3)),
+            Some(paraMaker(
+              RS("|]]"),
+              NA.DocLink(
+                NA.SelfAnchorHref("s-anchor"),
+                Some(RS("in Link"))
+              )
+            ))
+          )
+        )
+
+      parser = new WikiParser("[[../|Upper]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.SuperDocHref, Some(RS("Upper")))
+
+      parser = new WikiParser("[[../Fake]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("../Fake"), None)
+
+      parser = new WikiParser("[[/Get Lower|Lower]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.ChildDocHref(NA.NormalHref("Get Lower")), Some(RS("Lower")))
+
+      parser = new WikiParser("[[https://www.example.com|example!!]]")
+      parse(parser, parser.DocLink.run()) ===
+        NA.DocLink(NA.ExternalHref("https://www.example.com"), Some(RS("example!!")))
+
+      parser = new WikiParser("[[파일:some_file.jpg|width=30&height=10]]")
+      parse(parser, parser.Link.run()) === NA.FileLink("some_file.jpg", Some("width=30&height=10"))
+      parseAll("[[파일:some_file.jpg|width=30&height=10]]") === NA.FileLink("some_file.jpg", Some("width=30&height=10"))
+    }
+  }
+
+  private def parseAll(markText: String): Any = {
+    val parser = new WikiParser(markText)
+    parse(parser, parser.NamuMarkRule.run())
+  }
+
+  private def parse(parser: WikiParser, parseResult: Try[Any]): Any = {
+    parseResult match {
+      case Success(result)        => result
+      case Failure(e: ParseError) => sys.error(parser.formatError(e, new ErrorFormatter(showTraces = true)))
+      case Failure(e)             => throw e
+    }
+  }
+
+  private def paraMaker(marks: NM*): NA.Paragraph = new PG(marks.toVector)
+}
