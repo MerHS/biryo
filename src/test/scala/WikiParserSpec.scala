@@ -3,6 +3,7 @@ import net.kinetc.biryo.{NamuAST, WikiParser}
 import org.parboiled2._
 import org.specs2.mutable.Specification
 
+import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 class WikiParserSpec extends Specification {
@@ -45,26 +46,35 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.LineString.run()) == "make one"
     }
 
+    "parse normal paragraphs" in {
+      parseAll("test paragraph 1.\ntest paragraph 2.\ntest paragraph 3.") === paraMaker (
+        RS("test paragraph 1."), NA.BR,
+        RS("test paragraph 2."), NA.BR,
+        RS("test paragraph 3.")
+      )
+    }
+
     "parse One-Liners" in {
       var parser = new WikiParser("##Comment ##Check")
       parse(parser, parser.Comment.run()) === NA.Comment("Comment ##Check")
       parseAll("test ##0000\n##comment\n ##COMM\n#end") === paraMaker(
-        RS("test ##0000"),
-        NA.Comment("comment"),
-        RS(" ##COMM"),
+        RS("test ##0000"), NA.BR,
+        NA.Comment("comment"), NA.BR,
+        RS(" ##COMM"), NA.BR,
         RS("#end")
       )
 
       parser = new WikiParser("----------")
       parse(parser, parser.HR.run()) === NA.HR
       parseAll("HR\n----\n----------\n--\n-----------\n------------") === paraMaker(
-        RS("HR"), NA.HR, NA.HR, RS("--"),
-        paraMaker(NA.Strike(RS("")), NA.Strike(RS("")), RS("---")),
+        RS("HR"), NA.BR, NA.HR, NA.BR, NA.HR, NA.BR, RS("--"), NA.BR,
+        paraMaker(NA.Strike(RS("")), NA.Strike(RS("")), RS("---")), NA.BR,
         paraMaker(NA.Strike(RS("")), NA.Strike(RS("")),NA.Strike(RS("")))
       )
 
       parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test "), 2)
-      parseAll("== {{{ test }}} ==\n") === NA.RawHeadings(IS(" test "), 2)
+      parseAll("== {{{ test }}} ==\n") ===
+        paraMaker(NA.RawHeadings(IS(" test "), 2), NA.BR)
       parseAll("=== {{{ test }}} ==") ===
         paraMaker(RS("=== "), IS(" test "), RS(" =="))
 
@@ -136,6 +146,37 @@ class WikiParserSpec extends Specification {
       parseAll("{{{#F14 Tomcat}}}") === NA.ColorBlock(RS("Tomcat"), "#F14")
     }
 
+    "parse Curly Brace - Special Blocks" in {
+      val demoTeul = """{{{#!wiki style="border:1px solid gray;border-top:5px solid orange;padding:12px"
+                       |{{{+1 Plus Block! }}}[br][br]this is String}}}""".stripMargin
+      val demoTeulParsed = NA.WikiBlock(
+        "border:1px solid gray;border-top:5px solid orange;padding:12px",
+        paraMaker(
+          NA.SizeBlock(RS("Plus Block! "), 1),
+          NA.BR, NA.BR, RS("this is String")
+        )
+      )
+      var parser = new WikiParser(demoTeul)
+      parse(parser, parser.WikiBlock.run()) === demoTeulParsed
+      parseAll(demoTeul) === demoTeulParsed
+
+      val demoSyntax =
+        """{{{#!syntax scala
+          |  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+          |  def Comment = rule { "##" ~ LineString ~> NA.Comment }
+          |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
+          |}}}""".stripMargin
+      val demoSyntaxParsed = NA.SyntaxBlock(
+        "scala",
+        """  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+          |  def Comment = rule { "##" ~ LineString ~> NA.Comment }
+          |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }""".stripMargin
+      )
+      parser = new WikiParser(demoSyntax)
+      parse(parser, parser.SyntaxBlock.run()) === demoSyntaxParsed
+      parseAll(demoSyntax) === demoSyntaxParsed
+    }
+
     "parse Links" in {
       var parser = new WikiParser("[[Simple Link]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Simple Link"), None)
@@ -155,11 +196,11 @@ class WikiParserSpec extends Specification {
       parser = new WikiParser("[[Basic#anchor?]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.AnchorHref("Basic", "anchor?"), None)
 
-      parseAll("More is Better: [[Li\\]]nk#s-1.3|\\|\\]][[#s-anchor|in Link]]]]\n") ===
+      parseAll("More is Better: [[Li\\]]nk#s-11.3|\\|\\]][[#s-anchor|in Link]]]]\n") ===
         paraMaker(
           RS("More is Better: "),
           NA.DocLink(
-            NA.ParaHref("Li]]nk", Vector[Int](1, 3)),
+            NA.ParaHref("Li]]nk", Vector[Int](11, 3)),
             Some(paraMaker(
               RS("|]]"),
               NA.DocLink(
@@ -167,7 +208,8 @@ class WikiParserSpec extends Specification {
                 Some(RS("in Link"))
               )
             ))
-          )
+          ),
+          NA.BR
         )
 
       parser = new WikiParser("[[../|Upper]]")
@@ -184,8 +226,62 @@ class WikiParserSpec extends Specification {
         NA.DocLink(NA.ExternalHref("https://www.example.com"), Some(RS("example!!")))
 
       parser = new WikiParser("[[파일:some_file.jpg|width=30&height=10]]")
-      parse(parser, parser.Link.run()) === NA.FileLink("some_file.jpg", Some("width=30&height=10"))
-      parseAll("[[파일:some_file.jpg|width=30&height=10]]") === NA.FileLink("some_file.jpg", Some("width=30&height=10"))
+      parse(parser, parser.Link.run()) ===
+        NA.FileLink("some_file.jpg", Map("width" -> "30", "height" -> "10"))
+      parseAll("[[파일:some_file.jpg|width=30&height=10]]") ===
+        NA.FileLink("some_file.jpg", Map("width" -> "30", "height" -> "10"))
+    }
+
+    "parse Macros" in {
+      parseAll("[각주]  \n\n각주[br]테스트") === paraMaker(
+        NA.FootNoteList, NA.BR, NA.BR, paraMaker(
+          RS("각주"), NA.BR, RS("테스트")
+        )
+      )
+
+      var parser = new WikiParser("[youtube(woei2928fa,width=640,height=130)]")
+      parse(parser, parser.YoutubeLink.run()) === NA.YoutubeLink(
+        "woei2928fa", Map("width" -> "640", "height" -> "130")
+      )
+      parseAll("[youtube(woei2928fa,width=640,height=130)]") === NA.YoutubeLink(
+        "woei2928fa", Map("width" -> "640", "height" -> "130")
+      )
+
+      parseAll("[anchor(test)]") === NA.Anchor("test")
+      parseAll("[include(틀:테스트,link=http://example.com)]") === NA.Include(
+        "틀:테스트", Map("link" -> "http://example.com")
+      )
+    }
+
+    "parse FootNote" in {
+      var parser = new WikiParser("[* Simple '''FootNote''']")
+      parse(parser, parser.FootNote.run()) ===
+        NA.FootNote(paraMaker(RS("Simple "), NA.Bold(RS("FootNote"))), None)
+      parseAll("[* Simple '''FootNote''']") ===
+        NA.FootNote(paraMaker(RS("Simple "), NA.Bold(RS("FootNote"))), None)
+
+      parser = new WikiParser("[*테스트 not simple --FootNote--]")
+      parse(parser, parser.FootNote.run()) ===
+        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
+      parseAll("[*테스트 not simple --FootNote--]") ===
+        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
+    }
+
+    "parse BlockQuote" in {
+      1 === 1
+    }
+
+    "parse from file - Table" in {
+      1 === 1
+    }
+
+    "parse from file - Indent / Lists" in {
+      1 === 1
+    }
+
+    "parse NamuMark Original Document file" in {
+      val namuHelpTxt = Source.fromFile("src/test/namu_help.txt").mkString
+      parseAll(namuHelpTxt).isInstanceOf[NM] === true
     }
   }
 

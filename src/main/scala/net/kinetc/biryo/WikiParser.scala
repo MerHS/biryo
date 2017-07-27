@@ -19,23 +19,40 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // 강제개행은 제거된다
   def NamuMark: Rule1[NM] = rule {
-    push(new PB(Vector[NM](), new SB)) ~ (FetchObject.? ~ findEOIOnce).* ~> ((pb: PB) => NA.pbResolver(pb))
+    push(new PB(Vector[NM](), new SB)) ~ (FetchObject.* ~ findEOIOnce).* ~> ((pb: PB) => NA.pbResolver(pb))
   }
 
   var foundEOI = false
+  var findEnd = false
   private def findEOIOnce = rule {
-    NewLine | (&(ch(EOI)) ~ test(!foundEOI) ~ run { foundEOI = true })
+    (NewLine ~> ((pb: PB) => NA.pbMerger(pb, NA.BR))) |
+      (&(ch(EOI)) ~ test(!foundEOI) ~ run { foundEOI = true } ~> ((pb: PB) => pb))
+  }
+  private def findEndWithOnce(s: String) = rule {
+    findEOIOnce |
+      (&(s) ~ test(!findEnd) ~ run { findEnd = true } ~> ((pb: PB) => pb))
   }
 
   def NamuMarkEndWith(s: String): Rule1[NM] = rule {
-    push(new PB(Vector[NM](), new SB)) ~ ((!s ~ FetchObject).? ~ findEOIOnce).* ~> ((pb: PB) => NA.pbResolver(pb))
+    push(new PB(Vector[NM](), new SB)) ~
+      ((!s ~ FetchObjectEW(s)).* ~ findEndWithOnce(s)).* ~>
+      ((pb: PB) => NA.pbResolver(pb))
   }
 
   def FetchObject = rule {
     (
-      LineStartObject ~ run { foundEOI = false } ~> ((pb: PB, lineObj: NM) => NA.pbMerger(pb, lineObj))
+      LineStartObject ~ run { findEnd = false; foundEOI = false } ~>
+        ((pb: PB, lineObj: NM) => NA.pbMerger(pb, lineObj))
     ) |
-    (!NewLine ~ FetchChar ~> ((pb: PB, c: Char) => { pb.sb.append(c); pb }))
+    (!CheckLineEnd ~ FetchChar ~> ((pb: PB, c: Char) => { pb.sb.append(c); pb }))
+  }
+
+  def FetchObjectEW(s: String) = rule {
+    (
+      LineStartObjectEW(s) ~ run { findEnd = false; foundEOI = false } ~>
+        ((pb: PB, lineObj: NM) => NA.pbMerger(pb, lineObj))
+    ) |
+    (!CheckLineEnd ~ FetchChar ~> ((pb: PB, c: Char) => { pb.sb.append(c); pb }))
   }
 
   /**
@@ -52,7 +69,23 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '#' => Redirect | Comment | LineTerm
         case '-' => HR | LineTerm
         case '>' => LineTerm // BlockQuote Multiline
+        case '[' => LineStartMacro | LineTerm // 목차 / 각주목록
         case _ => LineTerm
+      }
+    }
+  }
+  def LineStartObjectEW(s: String): Rule1[NM] = rule {
+    run {
+      (cursorChar: @switch) match {
+        case '\n' | '\r' | '\uFFFF' => MISMATCH
+        case ' ' => LineTermEndWith(s)
+        case '=' => Headings | LineTermEndWith(s)
+        case '|' => LineTermEndWith(s)
+        case '#' => Redirect | Comment | LineTermEndWith(s)
+        case '-' => HR | LineTermEndWith(s)
+        case '>' => LineTermEndWith(s)
+        case '[' => LineStartMacro | LineTermEndWith(s)
+        case _ => LineTermEndWith(s)
       }
     }
   }
@@ -75,14 +108,14 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     (
       LineObject ~> ((pb: PB, lineObj: NM) => NA.pbMerger(pb, lineObj))
     ) |
-    (!NewLine ~ FetchChar ~> ((pb: PB, c: Char) => { pb.sb.append(c); pb }))
+    (!CheckLineEnd ~ FetchChar ~> ((pb: PB, c: Char) => { pb.sb.append(c); pb }))
   }
 
   def LineObject: Rule1[NM] = rule {
     run {
       (cursorChar: @switch) match {
         case '\n' | '\r' | '\uFFFF' => MISMATCH
-        case '{' => HTMLBlock | SpanBlock | RawBlock | StringBox
+        case '{' => SpecialBlock | SpanBlock | RawBlock | StringBox
         case '_' => Underline
         case '-' => StrikeMinus
         case '~' => StrikeTilde
@@ -90,40 +123,82 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case ',' => Sub
         case '_' => Underline
         case '\'' => Bold | Italic
-        case '[' => Link // | Macro
+        case '[' => OtherMacro | FootNote | Link
         case _ => MISMATCH
       }
     }
   }
-  // Rule 8. Indent & Lists (Multi-Liner)
+  // Rule 9. Indent & Lists (Multi-Liner)
 
-  // Rule 7. Table (Multi-Liner)
+  // Rule 8. Table (Multi-Liner)
 
-  // Rule 6. BlockQuote (Multi-Liner)
+  // Rule 7. BlockQuote (Multi-Liner)
+
+  // Rule 6. FootNote (Single Bracket)
+
+  def FootNote: Rule1[NM] = rule {
+    CommandStr("[*") ~ StringExceptC(' ') ~ ' ' ~
+      LineTermEndWith("]") ~ CommandStr("]") ~>
+      ((noteStr: String, value: NM) => {
+        if (noteStr == "")
+          NA.FootNote(value, None)
+        else
+          NA.FootNote(value, Some(noteStr))
+      })
+  }
 
   // Rule 5. Macros (Single Bracket)
+  // 매크로는 대소문 구분 X
+
+  def LineStartMacro: Rule1[NM] = rule { FootNoteList | TableOfContents }
+  def OtherMacro: Rule1[NM] = rule { BR | Include | DateMacro | Anchor | YoutubeLink }
+
+  def FootNoteList = rule {
+    (CommandStr("[각주]") | ICCommandStr("[footnote]")) ~ WL ~ CheckLineEnd ~ push(NA.FootNoteList)
+  }
+  def TableOfContents = rule {
+    (CommandStr("[목차]") | ICCommandStr("[tableofcontents]")) ~ WL ~ CheckLineEnd ~ push(NA.TableOfContents)
+  }
+
+  def Include = rule {
+    CommandStr("[include(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
+      ((args: Seq[String]) => NA.Include(args.head, argParse(args.tail)))
+  }
+  def BR = rule { CommandStr("[br]") ~ push(NA.BR) }
+  def Age = rule { CommandStr("[age(") ~ LineStringExceptC(')') ~ ")]" ~> NA.AgeMacro }
+  def DateMacro = rule { (CommandStr("[date]") | CommandStr("[datetime]")) ~ push(NA.DateMacro) }
+  def Anchor = rule { ICCommandStr("[anchor(") ~ LineStringExceptC(')') ~ CommandStr(")]") ~> NA.Anchor }
+  def YoutubeLink = rule {
+    ICCommandStr("[youtube(") ~ capture(noneOf(",)\n ").+).+(',') ~ CommandStr(")]") ~>
+      ((args: Seq[String]) => NA.YoutubeLink(args.head, argParse(args.tail)))
+  }
+
 
   // Rule 4. Links & Anchors (Double Brackets)
 
-  def Link = rule { FileLink | DocLink }
+  def Link = rule { FileLink | DocType | DocLink }
 
-  // TODO: [[:파일:example.png]] / [[ 파일:example.png]] 처리 (RawString Link)
-  // TODO: parse option to Map
+  def DocType = rule {
+    CommandStr("[[분류:") ~ LineStringExceptS("]]") ~
+      CommandStr("]]") ~ WL ~ CheckLineEnd ~> NA.DocType
+  }
+
   def FileLink: Rule1[NM] = rule {
     CommandStr("[[파일:") ~
-      (LineStringExceptC('|') ~> ((href: String) => NA.FileLink(href, None))) ~
+      (LineStringExceptC('|') ~> ((href: String) => NA.FileLink(href, Map[String, String]()))) ~
       (
         '|' ~ LineStringExceptS("]]") ~>
-        ((fl: NA.FileLink, option: String) => NA.FileLink(fl.href, Some(option)))
+        ((fl: NA.FileLink, option: String) => NA.FileLink(fl.href, argParse(option)))
       ).? ~ CommandStr("]]")
   }
 
   def DocLink: Rule1[NM] = rule {
-    CommandStr("[[") ~ (LinkPath ~> (NA.DocLink(_, None))) ~ ('|' ~ LinkAlias).? ~ CommandStr("]]")
+    (CommandStr("[[:") | CommandStr("[[ ") | CommandStr("[[")) ~
+      (LinkPath ~> (NA.DocLink(_, None))) ~ ('|' ~ LinkAlias).? ~ CommandStr("]]")
   }
 
   def LinkPath: Rule1[NA.NamuHref] = rule {
-    ("#s-" ~ (capture(CharPredicate.Digit) ~> (_.toInt)).+('.') ~> NA.SelfParaHref) | // Paragraph of Current Document
+    ("#s-" ~ (capture(CharPredicate.Digit.+) ~> (_.toInt)).+('.') ~> NA.SelfParaHref) | // Paragraph of Current Document
     ('#' ~ GetUntilAlias ~> NA.SelfAnchorHref) | // Anchor of Current Document
     (&("http://" | "https://") ~ GetUntilAlias ~> NA.ExternalHref) |
     ("../" ~ &("]]" | '|') ~ push(NA.SuperDocHref)) |
@@ -139,7 +214,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def NormalLinkPath: Rule1[NA.NamuHref] = rule {
     (clearSB() ~ (!(CheckS("]]") | CheckSPred("#|\n\r")) ~ Character).+ ~ push(sb.toString)) ~ (
       (&("]]" | '|') ~> NA.NormalHref) |
-      ("#s-" ~ (capture(CharPredicate.Digit) ~> (_.toInt)).+('.') ~> NA.ParaHref) |
+      ("#s-" ~ (capture(CharPredicate.Digit.+) ~> (_.toInt)).+('.') ~> NA.ParaHref) |
       ('#' ~ GetUntilAlias ~> NA.AnchorHref) |
       MISMATCH
     )
@@ -149,11 +224,26 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     LineTermEndWith("]]") ~> ((link: NA.DocLink, nm: NM) => NA.DocLink(link.href, Some(nm)))
   }
 
+
   // Rule 3. Curly Brace Blocks
 
-  // TODO: THIS??
+  def SpecialBlock: Rule1[NM] = rule { SyntaxBlock | WikiBlock | HTMLBlock }
+
+  def SyntaxBlock: Rule1[NM] = rule {
+    CommandStr("{{{#!syntax") ~ WL ~ SingleWord ~ WL.? ~ NewLine.? ~
+    StringExceptS("\n}}}") ~ "\n}}}" ~> NA.SyntaxBlock
+  }
+
+  // {{{#!wiki style="height=300" [[Markup]]}}} 등
+  def WikiBlock: Rule1[NM] = rule {
+    CommandStr("{{{#!wiki") ~ WL ~ "style=\"" ~
+      StringExceptC('"') ~ '"' ~ WL.? ~ NewLine.? ~
+      NamuMarkEndWith("}}}") ~ CommandStr("}}}") ~>
+      NA.WikiBlock
+  }
+
   def HTMLBlock: Rule1[NM] = rule {
-    CommandStr("{{{#!html") ~ StringExceptS("}}}") ~ "}}}" ~> NA.HTMLString
+    CommandStr("{{{#!html") ~ StringExceptS("}}}") ~ CommandStr("}}}") ~> NA.HTMLString
   }
 
   def SpanBlock = rule { ColorRGBBlock | ColorTextBlock | SizeBlock }
@@ -238,6 +328,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 1. Basic Characters
 
+  def ICCommandStr(s: String) = rule { !('\\' ~ ignoreCase(s)) ~ atomic(ignoreCase(s)) }
   def CommandStr(s: String) = rule { !('\\' ~ s) ~ atomic(s) }
   def FetchChar: Rule1[Char] = rule {
     ('\\' ~ ANY ~ push(lastChar)) | (ANY ~ push(lastChar))
@@ -263,8 +354,29 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def CharExceptSPred(s: String) = rule { !(!('\\' ~ anyOf(s)) ~ anyOf(s)) ~ (NormalChar | QuotedChar) }
   def StringExceptSPred(s: String) = rule { clearSB() ~ CharExceptSPred(s).* ~ push(sb.toString) }
 
+  def SingleWord = StringExceptSPred(" \t\n\r")
   def LineString = StringExceptSPred("\n\r")
 
+  def WS = rule { anyOf(" \t\r\n").* }
   def WL = rule { anyOf(" \t").* }
   def NewLine = rule { '\r'.? ~ '\n' }
+
+  private def argParse(argString: String, argDelim: Char='&', equalSign: Char='='): Map[String, String] = {
+    var argMap = Map[String, String]()
+    for(arg <- argString.split(argDelim)) {
+      val argSplit = arg.split(equalSign)
+      argMap += argSplit(0).trim -> (if (argSplit.length >= 2) argSplit(1).trim else "")
+    }
+    argMap
+  }
+
+  // Seq("a=3", "b=5", "c=6") => Map("a" -> "3", "b" -> "5", "c" -> 6)
+  private def argParse(args: Seq[String]): Map[String, String] = {
+    var argMap = Map[String, String]()
+    for (arg <- args) {
+      val argSplit = arg.split("=", 2)
+      argMap += argSplit(0).trim -> (if (argSplit.length >= 2) argSplit(1).trim else "")
+    }
+    argMap
+  }
 }
