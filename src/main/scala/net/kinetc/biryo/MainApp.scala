@@ -3,6 +3,7 @@ package net.kinetc.biryo
 import jawn.{AsyncParser, ParseException, ast}
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.io.Source
 
 object MainApp extends App {
@@ -19,75 +20,42 @@ object MainApp extends App {
 
   val namuSource = Source.fromFile(namuFile)
   val chunks: Iterator[String] = namuSource.grouped(20000).map(_.mkString)
-//
-//  var objNo = 0
-//  var xNo = 0
-//  def sink(js: ast.JValue) = {
-//    xNo += 1
-//    if (xNo % 1000 == 0)
-//      println(s"parsed $xNo")
-//    var noneNo = 0
-//    var (s1, s2, s3, s4, s5) = (0, 0, 0, 0, 0)
-//    js.get("namespace").getString match {
-//      case Some("0") => {
-//        if (objNo % 3000 == 0) {
-//          println(s"find name1: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        objNo += 1
-//      }
-//      case Some("1") => {
-//        if (s1 % 10 == 0) {
-//          println(s"find name2: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        s1 += 1
-//      }
-//      case Some("2") => {
-//        if (s2 % 10 == 0) {
-//          println(s"find name3: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        s2 += 1
-//      }
-//      case Some("3") => {
-//        if (s3 % 10 == 0) {
-//          println(s"find name4: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        s3 += 1
-//      }
-//      case Some("4") => {
-//        if (s4 % 10 == 0) {
-//          println(s"find name5: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        s4 += 1
-//      }
-//      case Some("5") => {
-//        if (s4 % 10 == 0) {
-//          println(s"find name6: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        s4 += 1
-//      }
-//      case p @ _ => {
-//        if (noneNo % 10 == 0) {
-//          println(s"find ${p}: ${js.get("title").getString}\n     text1: ${js.get("text").getString.map(_.take(30))}")
-//        }
-//        noneNo += 1
-//      }
-//    }
-//  }
 
   val mMaker = new MDictMaker("namuMDX.html")
-
-  def makeMDict(js: ast.JValue) = {
+  var nameSetZero = mutable.Set[String]()
+  // TODO: 틀 체크!!
+  def makeMDict(js: ast.JValue): Unit = {
     js.get("namespace").getString match {
-      case Some("0") | Some("1") => {
+      case Some("0") =>
         (js.get("title").getString, js.get("text").getString) match {
-          case (Some(title), Some(text)) => mMaker.makeMdictHtml(title, text)
+          case (Some(title), Some(text)) => {
+            nameSetZero.add(title)
+            mMaker.makeMdictHtml(title, text)
+          }
+          case _ => ()
         }
-      }
-      case Some("2") => {
+      case Some("1") =>
+        (js.get("title").getString, js.get("text").getString) match {
+          case (Some(title), Some(text)) => {
+            val newTitle = if (nameSetZero.contains(title)) {
+              println(s"틀 발견: $title")
+              "틀:"+title
+            } else title
+            mMaker.makeMdictHtml(newTitle, text)
+          }
+          case _ => ()
+        }
+      case Some("2") =>
         (js.get("title").getString, js.get("text").getString) match {
           case (Some(title), Some(text)) => mMaker.makeMdictHtml("분류:" + title, text)
+          case _ => ()
         }
-      }
+      case Some("6") =>
+        (js.get("title").getString, js.get("text").getString) match {
+          case (Some(title), Some(text)) => mMaker.makeMdictHtml("나무위키:" + title, text)
+          case _ => ()
+        }
+      case _ => ()
     }
   }
 

@@ -12,14 +12,17 @@ import scala.util.{Failure, Success}
   */
 class MDictMaker(path: String) {
   val pathFile: PrintWriter = new PrintWriter(path)
+  val renderer: HTMLRenderer = new HTMLRenderer
 
   def makeMdictHtml(title: String, text: String): Unit = {
     val parser = new WikiParser(text)
+    val postProcessor = new ASTPostProcessor(title)
+
     parser.NamuMarkRule.run() match {
       case Success(result)        => {
-        val wikiHTML = ASTPostProcessor.generateHTML(result)
+        val postResult = postProcessor.postProcessAST(result)
         pathFile.println(title)
-        pathFile.println(wikiHTML.replaceAll("\n", "<br>"))
+        pathFile.println(renderer generateHTML (title, postResult))
         pathFile.println("</>")
       }
       case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
