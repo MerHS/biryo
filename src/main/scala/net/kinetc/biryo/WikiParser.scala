@@ -136,8 +136,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 6. FootNote (Single Bracket)
 
+  // TODO: [*B] 처리 못함
   def FootNote: Rule1[NM] = rule {
-    CommandStr("[*") ~ StringExceptC(' ') ~ ' ' ~
+    CommandStr("[*") ~ LineStringExceptC(' ') ~ ' ' ~
       LineTermEndWith("]") ~ CommandStr("]") ~>
       ((noteStr: String, value: NM) => {
         if (noteStr == "")
@@ -297,7 +298,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 2. Basic Blocks / One-liners
 
-  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LineString ~> NA.Redirect }
   def Comment = rule { "##" ~ LineString ~> NA.Comment }
   def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
 

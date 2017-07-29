@@ -1,5 +1,6 @@
 package net.kinetc.biryo
 
+import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
 
 import scala.annotation.tailrec
@@ -7,6 +8,7 @@ import scala.collection.mutable
 import scala.io.Source
 
 object MainApp extends App {
+  import MDictMaker._
 //   if (args.length != 1)
 //     throw new IllegalArgumentException("usage: ./namuhtml-scala <filename>")
 //   val fileName = args(0)
@@ -14,47 +16,36 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namu3.json"
+  val namuFile = "../namuwiki.json"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
   val namuSource = Source.fromFile(namuFile)
   val chunks: Iterator[String] = namuSource.grouped(20000).map(_.mkString)
 
-  val mMaker = new MDictMaker("namuMDX.html")
-  var nameSetZero = mutable.Set[String]()
+  val actorSystem = ActorSystem("namuParser")
+  val printer = actorSystem.actorOf(FileIOActor.props("namu.txt"), "printerActor")
+  val mdictMakers = Array(
+    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker1"),
+    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker2"),
+    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker3")
+  )
+  //var nameSetZero = mutable.Set[String]()
+
+  var rrIndex = 0
   // TODO: 틀 체크!!
   def makeMDict(js: ast.JValue): Unit = {
-    js.get("namespace").getString match {
-      case Some("0") =>
-        (js.get("title").getString, js.get("text").getString) match {
-          case (Some(title), Some(text)) => {
-            nameSetZero.add(title)
-            mMaker.makeMdictHtml(title, text)
-          }
-          case _ => ()
-        }
-      case Some("1") =>
-        (js.get("title").getString, js.get("text").getString) match {
-          case (Some(title), Some(text)) => {
-            val newTitle = if (nameSetZero.contains(title)) {
-              println(s"틀 발견: $title")
-              "틀:"+title
-            } else title
-            mMaker.makeMdictHtml(newTitle, text)
-          }
-          case _ => ()
-        }
-      case Some("2") =>
-        (js.get("title").getString, js.get("text").getString) match {
-          case (Some(title), Some(text)) => mMaker.makeMdictHtml("분류:" + title, text)
-          case _ => ()
-        }
-      case Some("6") =>
-        (js.get("title").getString, js.get("text").getString) match {
-          case (Some(title), Some(text)) => mMaker.makeMdictHtml("나무위키:" + title, text)
-          case _ => ()
-        }
+    val prefix = js.get("namespace").getString match {
+      case Some("1") => "틀:"
+      case Some("2") => "분류:"
+      case Some("6") => "나무위키:"
+      case _ => ""
+    }
+    (js.get("title").getString, js.get("text").getString) match {
+      case (Some(title), Some(text)) =>
+        //nameSetZero.add(title)
+        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
+        rrIndex = (rrIndex + 1) % 3
       case _ => ()
     }
   }
@@ -75,6 +66,7 @@ object MainApp extends App {
 
   val parsed = loop(chunks)
   namuSource.close()
-  mMaker.finalizeThis()
+
+  mdictMakers.foreach(_ ! ParseEnd)
 }
 

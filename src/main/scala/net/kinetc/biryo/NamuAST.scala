@@ -11,6 +11,8 @@ object NamuAST {
   sealed trait NamuMark {
     def mkString: String = ""
 
+    def dfs(f: NamuMark => Unit): Unit = f(this)
+    def bfs(f: NamuMark => Unit): Unit = f(this)
     /**
       * Depth-First Search Mapping
       * @param f: PartialFunction, don't need to apply it to child
@@ -29,6 +31,10 @@ object NamuAST {
   sealed trait HasNamu extends NamuMark {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
+
+    override def dfs(f: (NamuMark) => Unit) = { f(value); f(this) }
+    override def bfs(f: (NamuMark) => Unit) = { f(this); f(value) }
+
     override def dfsMap(f: NamuMap): NamuMark = {
       val childMap = value.dfsMap(f)
       val newThis = constructor(childMap)
@@ -38,7 +44,7 @@ object NamuAST {
       if (f.isDefinedAt(this)) {
         val newThis = f(this)
         newThis match {
-          case t: HasNamu => constructor(t.value.bfsMap(f))
+          case t: HasNamu => t.constructor(t.value.bfsMap(f))
           case _ => newThis
         }
       } else {
@@ -57,6 +63,8 @@ object NamuAST {
   case class Paragraph(valueSeq: Seq[NamuMark]) extends NamuMark {
     override def mkString =
       valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
+    override def dfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.dfs(f)); f(this) }
+    override def bfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.bfs(f)) }
     override def dfsMap(f: NamuMap) = {
       val childMap = valueSeq.map(_.dfsMap(f))
       val newThis = Paragraph(childMap)
@@ -78,6 +86,14 @@ object NamuAST {
       case None => s"<a name=${q}rWTF$q></a><a href=${q}entry://#WTF$q>[*]</a>"
     }
     def constructor(nm: NamuMark) = FootNote(nm, noteStr)
+  }
+
+  case class ReverseFootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
+    override def mkString = noteStr match {
+      case Some(s) => s"<a name=${q}$s$q></a><a href=${q}entry://#r$s$q>[$s]</a> ${value.mkString}<br>"
+      case None => s"<a name=${q}WTF$q></a><a href=${q}entry://#rWTF$q>[*]</a> ${value.mkString}<br>"
+    }
+    def constructor(nm: NamuMark) = ReverseFootNote(nm, noteStr)
   }
 
   // TODO: Calculate This!
@@ -108,7 +124,7 @@ object NamuAST {
     }
   }
   case class Anchor(anchor: String) extends NamuMark {
-    override def mkString = s"<a name=$q#$anchor$q></a>"
+    override def mkString = s"<a name=$q$anchor$q></a>"
   }
 
   case class YoutubeLink(id: String, args: Map[String, String]) extends NamuMark {
@@ -117,6 +133,7 @@ object NamuAST {
   }
 
   // [[파일:$href|$htmlOption]]
+  // entry:// will be added while postprocessing
   case class FileLink(href: String, htmlOption: Map[String, String]) extends NamuMark {
     // Fallback to Link (for Mdict)
     override def mkString = s"<a href=${q}entry://$href$q>[파일:$href]</a>"
@@ -129,17 +146,19 @@ object NamuAST {
   // [[$href|$alias]] -> href will be changed to NormalHref after the postprocessing
   case class DocLink(href: NamuHref, alias: Option[NamuMark]) extends HasNamu with HasHref {
     override def mkString = alias match {
-      case Some(nm) => s"<a href=${q}entry://${href.value}$q>${nm.mkString}</a>"
-      case None => s"<a href=${q}entry://${href.value}$q>${href.value}</a>"
+      case Some(nm) => s"<a href=$q${href.value}$q>${nm.mkString}</a>"
+      case None => s"<a href=$q${href.value}$q>${href.value}</a>"
     }
     val value: NamuMark = alias.orNull
     override def constructor(nm: NamuMark) = DocLink(href, Some(nm))
+
+    override def dfs(f: (NamuMark) => Unit) = { alias.foreach(_.dfs(f)); f(this) }
+    override def bfs(f: (NamuMark) => Unit) = { f(this); alias.foreach(_.bfs(f)) }
     override def dfsMap(f: NamuMap) = {
       val childMap = alias.map(_.dfsMap(f))
-      val newThis = DocLink(href, alias.map(_.dfsMap(f)))
+      val newThis = DocLink(href, childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-
     override def bfsMap(f: NamuMap): NamuMark =
       if (f.isDefinedAt(this)) f(this) else DocLink(href, alias.map(_.bfsMap(f)))
     def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, alias)
@@ -167,7 +186,7 @@ object NamuAST {
     def constructor(nm: NamuMark) = ColorBlock(nm, color)
   }
 
-  case class RawHeadings(value:NamuMark, size: Int) extends HasNamu {
+  case class RawHeadings(value: NamuMark, size: Int) extends HasNamu {
     override def mkString = s"<h$size>${value.mkString}</h$size><hr>"
     def constructor(nm: NamuMark) = RawHeadings(nm, size)
   }
@@ -176,7 +195,7 @@ object NamuAST {
     override def mkString = {
       val hsize = if (no.length <= 5) no.length + 1 else 6
       val hno = no.mkString(".")
-      s"<h$hsize><a name=${q}s-$hno$q><font color=${q}blue$q>$hno.</font></a>${value.mkString}</h$hsize><hr>"
+      s"<h$hsize><a name=${q}s-$hno$q><font color=${q}blue$q>$hno. </font></a>${value.mkString}</h$hsize><hr>"
     }
     def constructor(nm: NamuMark) = Headings(nm, no)
   }
@@ -210,9 +229,14 @@ object NamuAST {
 
 
   // #redirect: 한글 -> Redirect(NormalHref(한글))
-  case class Redirect(href: NamuHref) extends NamuMark with HasHref {
-    override def mkString = s"<a href=$q${href.value}$q>리다이렉트:${href.value}</a>"
-    override def hrefConstructor(href: NamuHref) = Redirect(href)
+//  case class Redirect(href: NamuHref) extends NamuMark with HasHref {
+//    override def mkString = s"<a href=$q${href.value}$q>리다이렉트:${href.value}</a>"
+//    override def hrefConstructor(href: NamuHref) = Redirect(href)
+//  }
+
+  case class Redirect(value: String) extends NamuMark {
+    override def mkString = s"@@@LINK=$value"
+    //override def hrefConstructor(href: NamuHref) = Redirect(href)
   }
   // ##Comment -> Comment("Comment")
   case class Comment(value: String) extends NamuMark
@@ -251,7 +275,7 @@ object NamuAST {
   case class ExternalHref(value: String) extends NamuHref
   // [[#1.4.1]] => SelfParaHref(Seq[Int](1,4,1))
   case class SelfParaHref(paraNo: Seq[Int]) extends NamuHref {
-    val value: String = "#" + paraNo.mkString(".")
+    val value: String = "#s-" + paraNo.mkString(".")
   }
   // [[#anchor]] => SelfAnchorHref("anchor")
   case class SelfAnchorHref(anchor: String) extends NamuHref {

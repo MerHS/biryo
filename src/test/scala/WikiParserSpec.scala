@@ -265,6 +265,9 @@ class WikiParserSpec extends Specification {
         NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
       parseAll("[*테스트 not simple --FootNote--]") ===
         NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
+
+      parseAll("[* 각주 in [* 각주]]") ===
+        NA.FootNote(paraMaker(RS("각주 in "), NA.FootNote(RS("각주"), None)), None)
     }
 
     "parse BlockQuote" in {

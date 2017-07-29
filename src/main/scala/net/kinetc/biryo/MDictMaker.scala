@@ -1,8 +1,6 @@
 package net.kinetc.biryo
 
-import java.io.{File, FileOutputStream, PrintWriter}
-
-import jawn.ast
+import akka.actor.{Actor, ActorRef, Props}
 import org.parboiled2.{ErrorFormatter, ParseError}
 
 import scala.util.{Failure, Success}
@@ -10,24 +8,34 @@ import scala.util.{Failure, Success}
 /**
   * Created by KINETC on 2017-07-27.
   */
-class MDictMaker(path: String) {
-  val pathFile: PrintWriter = new PrintWriter(path)
-  val renderer: HTMLRenderer = new HTMLRenderer
+object MDictMaker {
+  def props(printActor: ActorRef) = Props(new MDictMaker(printActor))
+  final case class MDictDoc(title: String, text: String)
+  case object ParseEnd
+}
 
-  def makeMdictHtml(title: String, text: String): Unit = {
+class MDictMaker(printActor: ActorRef) extends Actor {
+  import FileIOActor._
+  import MDictMaker._
+
+  def makeMDictHtml(title: String, text: String): Unit = {
     val parser = new WikiParser(text)
+    val renderer = new HTMLRenderer
     val postProcessor = new ASTPostProcessor(title)
 
     parser.NamuMarkRule.run() match {
-      case Success(result)        => {
+      case Success(result) =>
         val postResult = postProcessor.postProcessAST(result)
-        pathFile.println(title)
-        pathFile.println(renderer generateHTML (title, postResult))
-        pathFile.println("</>")
-      }
+        val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
+        printActor ! PrintText(compiledText)
       case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
       case Failure(e)             => e.printStackTrace()
     }
   }
-  def finalizeThis() = pathFile.close()
+
+
+  def receive = {
+    case MDictDoc(title, text) => makeMDictHtml(title, text)
+    case ParseEnd => printActor ! Close
+  }
 }
