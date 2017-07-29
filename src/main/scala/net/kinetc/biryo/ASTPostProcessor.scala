@@ -2,6 +2,8 @@ package net.kinetc.biryo
 
 import NamuAST._
 
+// TODO: 저주받은 루드비히 / 아이린(레드벨벳) -> 하얀색
+
 /**
   * Created by KINETC on 2017-07-28.
   */
@@ -58,7 +60,7 @@ class ASTPostProcessor(val title: String) {
       case NormalHref(v) => NormalHref(s"entry://$v")
       case ParaHref(v, paraNo) => NormalHref(s"entry://$v#s-${paraNo.mkString(".")}")
       case AnchorHref(value, anchor) => NormalHref(s"entry://$value#$anchor")
-      case ExternalHref(value) => NormalHref(value)
+      case ExternalHref(value) => NormalHref(s"entry://$value")
       case SelfParaHref(_) | SelfAnchorHref(_) => NormalHref(s"entry://${href.value}")
       case SuperDocHref =>
         val newHref =

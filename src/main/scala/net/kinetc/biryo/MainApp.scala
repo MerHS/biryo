@@ -30,16 +30,15 @@ object MainApp extends App {
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker2"),
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker3")
   )
-  //var nameSetZero = mutable.Set[String]()
 
   var rrIndex = 0
-  // TODO: 틀 체크!!
   def makeMDict(js: ast.JValue): Unit = {
     val prefix = js.get("namespace").getString match {
+      case Some("0") => ""
       case Some("1") => "틀:"
       case Some("2") => "분류:"
       case Some("6") => "나무위키:"
-      case _ => ""
+      case _ => return
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
@@ -68,5 +67,6 @@ object MainApp extends App {
   namuSource.close()
 
   mdictMakers.foreach(_ ! ParseEnd)
+  println(s"Finish!")
 }
 

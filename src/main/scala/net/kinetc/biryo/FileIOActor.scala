@@ -36,6 +36,7 @@ class FileIOActor(path: String) extends Actor {
         time = newTime
       }
     case Close =>
+      println("get close")
       closeCount += 1
       if (closeCount == 3) pathFile.close()
   }

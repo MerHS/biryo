@@ -90,7 +90,7 @@ object NamuAST {
 
   case class ReverseFootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
     override def mkString = noteStr match {
-      case Some(s) => s"<a name=${q}$s$q></a><a href=${q}entry://#r$s$q>[$s]</a> ${value.mkString}<br>"
+      case Some(s) => s"<a name=$q$s$q></a><a href=${q}entry://#r$s$q>[$s]</a> ${value.mkString}<br>"
       case None => s"<a name=${q}WTF$q></a><a href=${q}entry://#rWTF$q>[*]</a> ${value.mkString}<br>"
     }
     def constructor(nm: NamuMark) = ReverseFootNote(nm, noteStr)
@@ -129,7 +129,7 @@ object NamuAST {
 
   case class YoutubeLink(id: String, args: Map[String, String]) extends NamuMark {
     // Fallback to Link (For MDict)
-    override def mkString = s"<a href=${q}https://www.youtube.com/watch?v=$id$q>[유튜브 링크]</a>"
+    override def mkString = s"<a href=${q}entry://https://www.youtube.com/watch?v=$id$q>[유튜브 링크]</a>"
   }
 
   // [[파일:$href|$htmlOption]]
@@ -203,7 +203,7 @@ object NamuAST {
 
   sealed trait SpanMark
   case class Strike(value: NamuMark) extends HasNamu with SpanMark {
-    override def mkString = s"<del>${value.mkString}</del>"
+    override def mkString = s"<font color=${q}gray$q><del>${value.mkString}</del></font>"
     def constructor(nm: NamuMark) = Strike(nm)
   }
   case class Sup(value: NamuMark) extends HasNamu with SpanMark {
@@ -235,11 +235,13 @@ object NamuAST {
 //  }
 
   case class Redirect(value: String) extends NamuMark {
-    override def mkString = s"@@@LINK=$value"
+    override def mkString = s"<a href=${q}entry://$value$q>리다이렉트:$value</a>"
+
     //override def hrefConstructor(href: NamuHref) = Redirect(href)
   }
   // ##Comment -> Comment("Comment")
   case class Comment(value: String) extends NamuMark
+  // TODO: remove youtube / external href
   // HTML Unescaped String {{{#!html ... }}}
   case class HTMLString(value: String) extends NamuMark {
     override def mkString = value
