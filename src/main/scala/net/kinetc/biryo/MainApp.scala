@@ -16,12 +16,12 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namu3.json"
+  val namuFile = "../namuwiki.json"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
   val namuSource = Source.fromFile(namuFile)
-  val chunks: Iterator[String] = namuSource.grouped(50000).map(_.mkString)
+  val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
 
   val actorSystem = ActorSystem("namuParser")
   val printer = actorSystem.actorOf(PrinterActor.props("namu.txt"), "printerActor")

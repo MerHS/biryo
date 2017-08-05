@@ -30,9 +30,11 @@ class PrinterActor(path: String) extends Actor {
       parsedNo += 1
       if (parsedNo % 1000 == 0) {
         val newTime = new Date()
+        val (nt, tt, ot) = (newTime.getTime, time.getTime, oldTime.getTime)
         println(s"parsed: $parsedNo   " +
-          s"| elapsed: ${(newTime.getTime - time.getTime)/1000}    " +
-          s"| total: ${(newTime.getTime - oldTime.getTime)/1000}")
+          s"| elapsed: ${1f*(nt - tt)/1000}   " +
+          s"| total: ${1f*(nt-ot)/1000}   " +
+          s"| average: ${1f*(nt - ot)/parsedNo}")
         time = newTime
       }
     case Close =>

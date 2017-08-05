@@ -171,7 +171,7 @@ object NamuAST {
 
   // {{{#!syntax $language $value}}}
   case class SyntaxBlock(language: String, value: String) extends NamuMark {
-    override def mkString = s"<pre><code>${value.replaceAll("\\", "\\\\")}</code></pre>"
+    override def mkString = s"<pre><code>$value</code></pre>"
   }
   // {{{$!wiki style="$style" $value}}}
   case class WikiBlock(style: String, value: NamuMark) extends NamuMark {
@@ -179,7 +179,7 @@ object NamuAST {
   }
   // {{|$value|}}
   case class WordBox(value: NamuMark) extends NamuMark with HasNamu {
-    override def mkString = s"<table ${c(wordBoxClass)}><tbody><td><tr><p>${value.mkString}</p></tr></td></tbody></table>"
+    override def mkString = s"<table ${c(wordBoxClass)}><tbody><tr><td><p>${value.mkString}</p></td></tr></tbody></table>"
     def constructor(nm: NamuMark) = WordBox(nm)
   }
   case class SizeBlock(value: NamuMark, size: Int) extends HasNamu {

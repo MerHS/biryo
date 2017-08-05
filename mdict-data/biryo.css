@@ -26,6 +26,11 @@ a {
     text-decoration: none;
 }
 
+p {
+    margin-top: 0px;
+    margin-bottom: 14px;
+}
+
 a:hover {
     color: #014c8c;
     text-decoration: underline;
@@ -76,7 +81,7 @@ a:hover {
 blockquote {
     border: 2px dashed #ccc;
     border-left: 5px solid #7CBC6D;
-    padding: 12px 53px 12px 12px;
+    padding: 14px 53px 14px 14px;
     margin: 14px 0;
     background: #eee;
     display: table;

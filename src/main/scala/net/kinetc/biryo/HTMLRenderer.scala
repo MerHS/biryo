@@ -38,7 +38,7 @@ class HTMLRenderer {
       |<link rel="stylesheet" type="text/css" href="biryo.css" />
       |</head>
       |<body>""".stripMargin +
-    s"<h1>$title</h1><hr>" +
+    s"<h1>$title</h1>" +
     (if (headListExists) "" else "<a name=\"headList\"></a>") +
     mainParagraph +
     s"<div ${c(footnoteListClass)}>" +
@@ -60,6 +60,7 @@ class HTMLRenderer {
   def renderMapper: NamuMap = {
       case RawString(s) => RawString(escapeHTML(s))
       case InlineString(s) => InlineString(escapeHTML(s))
+      case SyntaxBlock(l, v) => SyntaxBlock(l, escapeHTML(v))
       case HTMLString(s) => HTMLString(deleteExternalTag(s))
       case TableOfContents => HTMLString(headingsRenderer(headings.reverse))
       case DocLink(href: ExternalHref, alias) => HTMLString(externalLinkRenderer(href, alias))
@@ -98,7 +99,7 @@ class HTMLRenderer {
   // ------ PRIVATE UTILITY FUNCTIONS
 
   private def deleteExternalTag(s: String): String = {
-    s.replaceAll("<embed>.*</embed>|<iframe>.*</iframe>", "")
+    s.replaceAll("<embed.*</embed>|<iframe.*</iframe>", "")
       .replaceAll("href=\"http", "href=\"entry://")
   }
 

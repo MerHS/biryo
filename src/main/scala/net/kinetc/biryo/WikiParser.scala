@@ -245,7 +245,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def SyntaxBlock: Rule1[NM] = rule {
     ICCommandStr("{{{#!syntax") ~ WL.? ~ SingleWord ~ WL.? ~ NewLine.? ~
-    StringExceptS("\n}}}") ~ "\n}}}" ~> NA.SyntaxBlock
+      capture((!"\n}}}" ~ ANY).*) ~ "\n}}}" ~> NA.SyntaxBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
@@ -257,7 +257,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def HTMLBlock: Rule1[NM] = rule {
-    ICCommandStr("{{{#!html") ~ WL.? ~ StringExceptS("}}}") ~ CommandStr("}}}") ~> NA.HTMLString
+    ICCommandStr("{{{#!html") ~ WL.? ~ capture((!"}}}" ~ ANY).*) ~ "}}}" ~> NA.HTMLString
   }
 
   def SpanBlock = rule { ColorRGBBlock | ColorTextBlock | SizeBlock }
