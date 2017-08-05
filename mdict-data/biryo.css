@@ -4,6 +4,7 @@
 
 code {
     color: #bd4147;
+    font-size: 90%;
 }
 
 del {
@@ -14,8 +15,36 @@ div {
     display: block;
 }
 
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    display: table;
+}
+
+a {
+    color: #0275d8;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #014c8c;
+    text-decoration: underline;
+    outline: 0;
+}
+
+.word-box {
+    padding: 5px;
+    margin: 10px 0;
+    border: 1px solid #727272;
+}
+
 .link-external {
     color: #090;
+}
+
+.link-external-header {
+    background: green;
+    color: white;
 }
 
 .content-table {
@@ -47,9 +76,9 @@ div {
 blockquote {
     border: 2px dashed #ccc;
     border-left: 5px solid #7CBC6D;
-    padding: 14px 53px 14px 14px;
-    margin: 14px;
-    background: #ccc;
+    padding: 12px 53px 12px 12px;
+    margin: 14px 0;
+    background: #eee;
     display: table;
 }
 
@@ -62,9 +91,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .footnote-list {
-    margin: 21px 0
-    padding: 7px 0
-    border-top: 1px solid #777
+    margin: 21px 0;
+    padding: 7px 0;
+    border-top: 1px solid #777;
+}
+
+.footnote-item {
+    line-height: 22px;
+    display: block;
+}
+
+.doctype {
+    border: 1px solid #777;
+    padding: 5px;
+    margin: 12px 0;
 }
 
 h1 {
@@ -90,4 +130,3 @@ h5 {
 h6 {
     font-size: 14px;
 }
-

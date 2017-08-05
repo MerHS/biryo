@@ -12,44 +12,52 @@ object NamuAST {
   trait NamuMark {
     def mkString: String = ""
 
-    def dfs(f: NamuMark => Unit): Unit = f(this)
-    def bfs(f: NamuMark => Unit): Unit = f(this)
     /**
-      * Depth-First Search Mapping
+      * Child-First Traversing
+      */
+    def cfs(f: NamuMark => Unit): Unit = f(this)
+
+    /**
+      * Node-First Traversing
+      */
+    def nfs(f: NamuMark => Unit): Unit = f(this)
+
+    /**
+      * Child-First Node Mapping
       * @param f: PartialFunction, don't need to apply it to child
       * @return default: this, or f.apply(this)
       */
-    def dfsMap(f: NamuMap): NamuMark = if (f.isDefinedAt(this)) f(this) else this
+    def cfsMap(f: NamuMap): NamuMark = if (f.isDefinedAt(this)) f(this) else this
 
     /**
-      * Breath-First Search Mapping
+      * Node-First Node Mapping
       * @param f PartialFunction, You should apply it to child when `this` is Paragraph or DocLink
       * @return default: this, or f.apply(this)
       */
-    def bfsMap(f: NamuMap): NamuMark = dfsMap(f)
+    def nfsMap(f: NamuMap): NamuMark = cfsMap(f)
   }
 
   trait HasNamu extends NamuMark {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
 
-    override def dfs(f: (NamuMark) => Unit) = { value.dfs(f); f(this) }
-    override def bfs(f: (NamuMark) => Unit) = { f(this); value.bfs(f) }
+    override def cfs(f: (NamuMark) => Unit) = { value.cfs(f); f(this) }
+    override def nfs(f: (NamuMark) => Unit) = { f(this); value.nfs(f) }
 
-    override def dfsMap(f: NamuMap): NamuMark = {
-      val childMap = value.dfsMap(f)
+    override def cfsMap(f: NamuMap): NamuMark = {
+      val childMap = value.cfsMap(f)
       val newThis = constructor(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def bfsMap(f: NamuMap): NamuMark = {
+    override def nfsMap(f: NamuMap): NamuMark = {
       if (f.isDefinedAt(this)) {
         val newThis = f(this)
         newThis match {
-          case t: HasNamu => t.constructor(t.value.bfsMap(f))
+          case t: HasNamu => t.constructor(t.value.nfsMap(f))
           case _ => newThis
         }
       } else {
-        constructor(value.bfsMap(f))
+        constructor(value.nfsMap(f))
       }
     }
   }
@@ -63,15 +71,15 @@ object NamuAST {
   case class Paragraph(valueSeq: Seq[NamuMark]) extends NamuMark {
     override def mkString =
       valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
-    override def dfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.dfs(f)); f(this) }
-    override def bfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.bfs(f)) }
-    override def dfsMap(f: NamuMap) = {
-      val childMap = valueSeq.map(_.dfsMap(f))
+    override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
+    override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
+    override def cfsMap(f: NamuMap) = {
+      val childMap = valueSeq.map(_.cfsMap(f))
       val newThis = Paragraph(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def bfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) f(this) else Paragraph(valueSeq.map(_.bfsMap(f)))
+    override def nfsMap(f: NamuMap): NamuMark =
+      if (f.isDefinedAt(this)) f(this) else Paragraph(valueSeq.map(_.nfsMap(f)))
   }
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
@@ -105,7 +113,7 @@ object NamuAST {
   case object FootNoteList extends NamuMark {
     override def mkString = "[각주]"
   }
-  // TODO: Render This From HTMLRenderer
+
   case object TableOfContents extends NamuMark {
     override def mkString = "[목차]"
   }
@@ -137,7 +145,7 @@ object NamuAST {
   }
   // [[분류:$docType]]
   case class DocType(docType: String) extends NamuMark {
-    override def mkString = s"<div style=${q}border:1px solid gray; padding:5px;$q>" +
+    override def mkString = s"<div ${c(docTypeClass)}>" +
       s"분류: <a href=${q}entry://분류:$docType$q>$docType</a></div>"
   }
   // [[$href|$alias]] -> href will be changed to NormalHref after the postprocessing
@@ -149,30 +157,30 @@ object NamuAST {
     val value: NamuMark = alias.orNull
     override def constructor(nm: NamuMark) = DocLink(href, Some(nm))
 
-    override def dfs(f: (NamuMark) => Unit) = { alias.foreach(_.dfs(f)); f(this) }
-    override def bfs(f: (NamuMark) => Unit) = { f(this); alias.foreach(_.bfs(f)) }
-    override def dfsMap(f: NamuMap) = {
-      val childMap = alias.map(_.dfsMap(f))
+    override def cfs(f: (NamuMark) => Unit) = { alias.foreach(_.cfs(f)); f(this) }
+    override def nfs(f: (NamuMark) => Unit) = { f(this); alias.foreach(_.nfs(f)) }
+    override def cfsMap(f: NamuMap) = {
+      val childMap = alias.map(_.cfsMap(f))
       val newThis = DocLink(href, childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def bfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) f(this) else DocLink(href, alias.map(_.bfsMap(f)))
+    override def nfsMap(f: NamuMap): NamuMark =
+      if (f.isDefinedAt(this)) f(this) else DocLink(href, alias.map(_.nfsMap(f)))
     def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, alias)
   }
 
   // {{{#!syntax $language $value}}}
   case class SyntaxBlock(language: String, value: String) extends NamuMark {
-    override def mkString = s"<pre><code>$value</code></pre>"
+    override def mkString = s"<pre><code>${value.replaceAll("\\", "\\\\")}</code></pre>"
   }
   // {{{$!wiki style="$style" $value}}}
   case class WikiBlock(style: String, value: NamuMark) extends NamuMark {
     override def mkString = s"<div style=$q$style$q>${value.mkString}</div>"
   }
   // {{|$value|}}
-  case class StringBox(value: NamuMark) extends NamuMark with HasNamu {
-    override def mkString = s"<table><tbody><td><tr><p>${value.mkString}</p></tr></td></tbody></table>"
-    def constructor(nm: NamuMark) = StringBox(nm)
+  case class WordBox(value: NamuMark) extends NamuMark with HasNamu {
+    override def mkString = s"<table ${c(wordBoxClass)}><tbody><td><tr><p>${value.mkString}</p></tr></td></tbody></table>"
+    def constructor(nm: NamuMark) = WordBox(nm)
   }
   case class SizeBlock(value: NamuMark, size: Int) extends HasNamu {
     override def mkString = s"<font size=$q+$size$q>${value.mkString}</font>"
@@ -187,13 +195,13 @@ object NamuAST {
     override def mkString = s"<h$size>${value.mkString}</h$size><hr>"
     def constructor(nm: NamuMark) = RawHeadings(nm, size)
   }
+
   // Post Process Only AST Node
-  // TODO: h3~h6 폰트 크기 키우기 (to CSS)
   case class Headings(value: NamuMark, no: Seq[Int]) extends HasNamu {
     override def mkString = {
       val hsize = if (no.length <= 5) no.length + 1 else 6
       val hno = no.mkString(".")
-      s"<h$hsize><a name=${q}s-$hno$q><font color=${q}blue$q>$hno. </font></a>${value.mkString}</h$hsize>"
+      s"<h$hsize><a name=${q}s-$hno$q><a href=$q#headList$q>$hno. </a></a>${value.mkString}</h$hsize>"
     }
     def constructor(nm: NamuMark) = Headings(nm, no)
   }

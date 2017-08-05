@@ -115,7 +115,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     run {
       (cursorChar: @switch) match {
         case '\n' | '\r' | '\uFFFF' => MISMATCH
-        case '{' => SpecialBlock | SpanBlock | RawBlock | StringBox
+        case '{' => SpecialBlock | SpanBlock | RawBlock | WordBox
         case '_' => Underline
         case '-' => StrikeMinus
         case '~' => StrikeTilde
@@ -285,7 +285,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ((s: String, nm: NM) => NA.SizeBlock(nm, s.toInt))
   }
 
-  def StringBox = rule { MatchBlock("{{|", "|}}") ~> NA.StringBox }
+  def WordBox = rule { MatchBlock("{{|", "|}}") ~> NA.WordBox }
 
   def RawBlock: Rule1[NM] = rule {
       CommandStr("{{{") ~ push(new SB) ~ RBResolver.* ~ "}}}" ~>

@@ -13,9 +13,9 @@ class ASTPostProcessor(val title: String) {
   private var fnNo = 0
 
   def postProcessAST(mark: NamuMark): NamuMark = {
-    mark.bfs(findIndent)
+    mark.nfs(findIndent)
 
-    mark.dfsMap(postProcessor)
+    mark.nfsMap(footNoteProcessor).cfsMap(postProcessor)
   }
 
   // TODO: {{{ }}} -> code / {{{\n \n}}} -> pre code
@@ -40,14 +40,17 @@ class ASTPostProcessor(val title: String) {
         currHeading ++= Seq.fill(realSize - currHeading.length + 1)(1)
       }
       Headings(v, currHeading)
+    case HTMLString(s) if s.contains("<span") && !s.contains("</span>") =>
+      HTMLString(s + "</span>")
+  }
+
+  protected def footNoteProcessor: NamuMap = {
     case f @ FootNote(v, noteStr) =>
       fnNo += 1
       noteStr match {
         case Some(_) => f
         case None => FootNote(v, Some(fnNo.toString))
       }
-    case HTMLString(s) if s.contains("<span") && !s.contains("</span>") =>
-      HTMLString(s + "</span>")
   }
 
   protected def findIndent(mark: NamuMark): Unit = {

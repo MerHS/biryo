@@ -38,7 +38,9 @@ class PrinterActor(path: String) extends Actor {
     case Close =>
       println("get close")
       closeCount += 1
-      if (closeCount == 3) pathFile.close()
-      sys.exit()
+      if (closeCount == 3) {
+        pathFile.close()
+        sys.exit()
+      }
   }
 }

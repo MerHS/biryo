@@ -1,7 +1,5 @@
 package net.kinetc.biryo
 
-import java.io.PrintWriter
-
 import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
 
