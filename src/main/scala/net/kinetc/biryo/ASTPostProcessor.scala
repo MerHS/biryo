@@ -21,6 +21,7 @@ class ASTPostProcessor(val title: String) {
   // TODO: {{{ }}} -> code / {{{\n \n}}} -> pre code
   // TODO: Comment 직후 BR 삭제
   // TODO: List, Indent 처리 / 다중 SpanMark 앞뒤공백 제거
+  // TODO: DocType 모으기
   protected def postProcessor: NamuMap = {
     /// ----- Href Resolver -----
     case DocLink(href: ExternalHref, None) =>
@@ -45,6 +46,8 @@ class ASTPostProcessor(val title: String) {
         case Some(_) => f
         case None => FootNote(v, Some(fnNo.toString))
       }
+    case HTMLString(s) if s.contains("<span") && !s.contains("</span>") =>
+      HTMLString(s + "</span>")
   }
 
   protected def findIndent(mark: NamuMark): Unit = {
@@ -54,13 +57,12 @@ class ASTPostProcessor(val title: String) {
     }
   }
 
-  // change all NamuHrefs to NormalHref
+  // change all NamuHrefs to NormalHref except ExternalHref
   protected def hrefProcessor(href: NamuHref): NamuHref = {
     href match {
       case NormalHref(v) => NormalHref(s"entry://$v")
       case ParaHref(v, paraNo) => NormalHref(s"entry://$v#s-${paraNo.mkString(".")}")
       case AnchorHref(value, anchor) => NormalHref(s"entry://$value#$anchor")
-      case ExternalHref(value) => NormalHref(s"entry://$value")
       case SelfParaHref(_) | SelfAnchorHref(_) => NormalHref(s"entry://${href.value}")
       case SuperDocHref =>
         val newHref =

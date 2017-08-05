@@ -15,7 +15,7 @@ object MDictMaker {
 }
 
 class MDictMaker(printActor: ActorRef) extends Actor {
-  import FileIOActor._
+  import PrinterActor._
   import MDictMaker._
 
   def makeMDictHtml(title: String, text: String): Unit = {

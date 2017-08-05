@@ -1,5 +1,7 @@
 package net.kinetc.biryo
 
+import java.io.PrintWriter
+
 import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
 
@@ -16,22 +18,23 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namuwiki.json"
+  val namuFile = "../namu3.json"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
   val namuSource = Source.fromFile(namuFile)
-  val chunks: Iterator[String] = namuSource.grouped(20000).map(_.mkString)
+  val chunks: Iterator[String] = namuSource.grouped(50000).map(_.mkString)
 
   val actorSystem = ActorSystem("namuParser")
-  val printer = actorSystem.actorOf(FileIOActor.props("namu.txt"), "printerActor")
+  val printer = actorSystem.actorOf(PrinterActor.props("namu.txt"), "printerActor")
   val mdictMakers = Array(
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker1"),
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker2"),
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker3")
   )
-
   var rrIndex = 0
+  var docCount = 0
+
   def makeMDict(js: ast.JValue): Unit = {
     val prefix = js.get("namespace").getString match {
       case Some("0") => ""
@@ -42,9 +45,9 @@ object MainApp extends App {
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
-        //nameSetZero.add(title)
         mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
         rrIndex = (rrIndex + 1) % 3
+        docCount += 1
       case _ => ()
     }
   }
@@ -66,7 +69,9 @@ object MainApp extends App {
   val parsed = loop(chunks)
   namuSource.close()
 
+  println(s"Finish! Document counts: $docCount")
+
   mdictMakers.foreach(_ ! ParseEnd)
-  println(s"Finish!")
+
 }
 

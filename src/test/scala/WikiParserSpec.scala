@@ -271,7 +271,15 @@ class WikiParserSpec extends Specification {
     }
 
     "parse BlockQuote" in {
-      1 === 1
+      parseAll(">default BlockQuote") ===
+        NA.BlockQuote(RS("default BlockQuote"))
+
+      parseAll(">multiple\n>and> Multiple\n>>realMultiple") ===
+        NA.BlockQuote(paraMaker(
+          RS("multiple"), NA.BR,
+          RS("and> Multiple"), NA.BR,
+          NA.BlockQuote(RS("realMultiple"))
+        ))
     }
 
     "parse from file - Table" in {

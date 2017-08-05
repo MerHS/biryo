@@ -1,14 +1,15 @@
 package net.kinetc.biryo
 
 import scala.collection.Seq
+import HTMLRenderer._
 
 // TODO: instantiate NamuAST Applicative fmap function
 object NamuAST {
   type NamuMap = PartialFunction[NamuMark, NamuMark]
   // s"\"" -> s"$q"  (Build Error???)
-  private val q = '"'
+  val q = '"'
 
-  sealed trait NamuMark {
+  trait NamuMark {
     def mkString: String = ""
 
     def dfs(f: NamuMark => Unit): Unit = f(this)
@@ -28,12 +29,12 @@ object NamuAST {
     def bfsMap(f: NamuMap): NamuMark = dfsMap(f)
   }
 
-  sealed trait HasNamu extends NamuMark {
+  trait HasNamu extends NamuMark {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
 
-    override def dfs(f: (NamuMark) => Unit) = { f(value); f(this) }
-    override def bfs(f: (NamuMark) => Unit) = { f(this); f(value) }
+    override def dfs(f: (NamuMark) => Unit) = { value.dfs(f); f(this) }
+    override def bfs(f: (NamuMark) => Unit) = { f(this); value.bfs(f) }
 
     override def dfsMap(f: NamuMap): NamuMark = {
       val childMap = value.dfsMap(f)
@@ -53,12 +54,11 @@ object NamuAST {
     }
   }
 
-  sealed trait HasHref {
+  trait HasHref {
     val href: NamuHref
     def hrefConstructor(href: NamuHref): NamuMark
     def hrefMap(f: NamuHref => NamuHref): NamuMark = hrefConstructor(f(href))
   }
-
 
   case class Paragraph(valueSeq: Seq[NamuMark]) extends NamuMark {
     override def mkString =
@@ -80,20 +80,17 @@ object NamuAST {
     def constructor(nm: NamuMark) = ListObj(nm, listType, indentSize)
   }
 
+  case class BlockQuote(value: NamuMark) extends HasNamu {
+    override def mkString = s"<blockquote><div ${c(indentClass)}>${value.mkString}</div></blockquote>"
+    def constructor(nm: NamuMark) = BlockQuote(nm)
+  }
+
   case class FootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
     override def mkString = noteStr match {
       case Some(s) => s"<a name=${q}r$s$q></a><a href=${q}entry://#$s$q>[$s]</a>"
       case None => s"<a name=${q}rWTF$q></a><a href=${q}entry://#WTF$q>[*]</a>"
     }
     def constructor(nm: NamuMark) = FootNote(nm, noteStr)
-  }
-
-  case class ReverseFootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
-    override def mkString = noteStr match {
-      case Some(s) => s"<a name=$q$s$q></a><a href=${q}entry://#r$s$q>[$s]</a> ${value.mkString}<br>"
-      case None => s"<a name=${q}WTF$q></a><a href=${q}entry://#rWTF$q>[*]</a> ${value.mkString}<br>"
-    }
-    def constructor(nm: NamuMark) = ReverseFootNote(nm, noteStr)
   }
 
   // TODO: Calculate This!
@@ -191,11 +188,12 @@ object NamuAST {
     def constructor(nm: NamuMark) = RawHeadings(nm, size)
   }
   // Post Process Only AST Node
+  // TODO: h3~h6 폰트 크기 키우기 (to CSS)
   case class Headings(value: NamuMark, no: Seq[Int]) extends HasNamu {
     override def mkString = {
       val hsize = if (no.length <= 5) no.length + 1 else 6
       val hno = no.mkString(".")
-      s"<h$hsize><a name=${q}s-$hno$q><font color=${q}blue$q>$hno. </font></a>${value.mkString}</h$hsize><hr>"
+      s"<h$hsize><a name=${q}s-$hno$q><font color=${q}blue$q>$hno. </font></a>${value.mkString}</h$hsize>"
     }
     def constructor(nm: NamuMark) = Headings(nm, no)
   }
@@ -203,7 +201,7 @@ object NamuAST {
 
   sealed trait SpanMark
   case class Strike(value: NamuMark) extends HasNamu with SpanMark {
-    override def mkString = s"<font color=${q}gray$q><del>${value.mkString}</del></font>"
+    override def mkString = s"<del>${value.mkString}</del>"
     def constructor(nm: NamuMark) = Strike(nm)
   }
   case class Sup(value: NamuMark) extends HasNamu with SpanMark {

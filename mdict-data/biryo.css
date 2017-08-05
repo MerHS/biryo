@@ -1,0 +1,93 @@
+* {
+    box-sizing: inherit;
+}
+
+code {
+    color: #bd4147;
+}
+
+del {
+    color: gray;
+}
+
+div {
+    display: block;
+}
+
+.link-external {
+    color: #090;
+}
+
+.content-table {
+    border: 1px solid #bbb;
+    padding: 12px 20px 18px 0px;
+    box-sizing: inherit;
+    display: inline-block;
+}
+
+.content-table-before {
+    font-size: 18px;
+    margin-left: 14px;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.ct-indent {
+    padding-left: 20px;
+}
+
+.ct-item {
+    display: block;
+}
+
+.indent {
+    padding-left: 10px;
+}
+
+blockquote {
+    border: 2px dashed #ccc;
+    border-left: 5px solid #7CBC6D;
+    padding: 14px 53px 14px 14px;
+    margin: 14px;
+    background: #ccc;
+    display: table;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    border-bottom: 1px solid #bbb;
+    padding-bottom: 5px;
+    font-weight: bold;
+    clear: both;
+    margin: 27px 0 18px 0;
+}
+
+.footnote-list {
+    margin: 21px 0
+    padding: 7px 0
+    border-top: 1px solid #777
+}
+
+h1 {
+    font-size: 29px;
+}
+
+h2 {
+    font-size: 26px;
+}
+
+h3 {
+    font-size: 23px;
+}
+
+h4 {
+    font-size: 20px;
+}
+
+h5 {
+    font-size: 17px;
+}
+
+h6 {
+    font-size: 14px;
+}
+

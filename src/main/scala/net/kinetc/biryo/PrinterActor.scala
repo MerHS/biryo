@@ -8,15 +8,15 @@ import akka.actor.{Actor, Props}
 /**
   * Created by KINETC on 2017-07-29.
   */
-object FileIOActor {
-  def props(path: String): Props = Props(new FileIOActor(path))
+object PrinterActor {
+  def props(path: String): Props = Props(new PrinterActor(path))
   final case class PrintText(text: String)
   case object Close
 }
 
 
-class FileIOActor(path: String) extends Actor {
-  import FileIOActor._
+class PrinterActor(path: String) extends Actor {
+  import PrinterActor._
 
   val pathFile: PrintWriter = new PrintWriter(path)
   var parsedNo = 0
@@ -39,5 +39,6 @@ class FileIOActor(path: String) extends Actor {
       println("get close")
       closeCount += 1
       if (closeCount == 3) pathFile.close()
+      sys.exit()
   }
 }

@@ -68,7 +68,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '|' => LineTerm // Table Multiline
         case '#' => Redirect | Comment | LineTerm
         case '-' => HR | LineTerm
-        case '>' => LineTerm // BlockQuote Multiline
+        case '>' => BlockQuote | LineTerm // BlockQuote Multiline
         case '[' => LineStartMacro | LineTerm // 목차 / 각주목록
         case _ => LineTerm
       }
@@ -83,7 +83,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '|' => LineTermEndWith(s)
         case '#' => Redirect | Comment | LineTermEndWith(s)
         case '-' => HR | LineTermEndWith(s)
-        case '>' => LineTermEndWith(s)
+        case '>' => BlockQuote | LineTermEndWith(s)
         case '[' => LineStartMacro | LineTermEndWith(s)
         case _ => LineTermEndWith(s)
       }
@@ -128,11 +128,24 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       }
     }
   }
-  // Rule 9. Indent & Lists (Multi-Liner)
+  // Rule 9. Table (Multi-Liner)
 
-  // Rule 8. Table (Multi-Liner)
+  // Rule 8. Indent & Lists (Multi-Liner)
 
   // Rule 7. BlockQuote (Multi-Liner)
+
+  def BlockQuote: Rule1[NM] = rule {
+    BlockQuoteLine.+ ~>
+      ((sl: Seq[String]) =>
+        NA.BlockQuote(new WikiParser(sl.mkString).NamuMarkRule.run().get))
+  }
+
+  // I Hate Type System....
+  private def BlockQuoteLine: Rule1[String] = rule {
+    '>' ~ LineString ~
+      ((&(EOI) ~> ((s: String) => s)) |
+      (NewLine ~> ((s: String) => s + '\n')))
+  }
 
   // Rule 6. FootNote (Single Bracket)
 
@@ -162,12 +175,12 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def Include = rule {
-    CommandStr("[include(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
+    ICCommandStr("[include(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
       ((args: Seq[String]) => NA.Include(args.head, argParse(args.tail)))
   }
-  def BR = rule { CommandStr("[br]") ~ push(NA.BR) }
-  def Age = rule { CommandStr("[age(") ~ LineStringExceptC(')') ~ ")]" ~> NA.AgeMacro }
-  def DateMacro = rule { (CommandStr("[date]") | CommandStr("[datetime]")) ~ push(NA.DateMacro) }
+  def BR = rule { ICCommandStr("[br]") ~ push(NA.BR) }
+  def Age = rule { ICCommandStr("[age(") ~ LineStringExceptC(')') ~ ")]" ~> NA.AgeMacro }
+  def DateMacro = rule { (ICCommandStr("[date]") | ICCommandStr("[datetime]")) ~ push(NA.DateMacro) }
   def Anchor = rule { ICCommandStr("[anchor(") ~ LineStringExceptC(')') ~ CommandStr(")]") ~> NA.Anchor }
   def YoutubeLink = rule {
     ICCommandStr("[youtube(") ~ capture(noneOf(",)\n ").+).+(',') ~ CommandStr(")]") ~>
@@ -231,20 +244,20 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def SpecialBlock: Rule1[NM] = rule { SyntaxBlock | WikiBlock | HTMLBlock }
 
   def SyntaxBlock: Rule1[NM] = rule {
-    CommandStr("{{{#!syntax") ~ WL ~ SingleWord ~ WL.? ~ NewLine.? ~
+    ICCommandStr("{{{#!syntax") ~ WL.? ~ SingleWord ~ WL.? ~ NewLine.? ~
     StringExceptS("\n}}}") ~ "\n}}}" ~> NA.SyntaxBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
   def WikiBlock: Rule1[NM] = rule {
-    CommandStr("{{{#!wiki") ~ WL ~ "style=\"" ~
+    ICCommandStr("{{{#!wiki") ~ WL.? ~ "style=\"" ~
       StringExceptC('"') ~ '"' ~ WL.? ~ NewLine.? ~
       NamuMarkEndWith("}}}") ~ CommandStr("}}}") ~>
       NA.WikiBlock
   }
 
   def HTMLBlock: Rule1[NM] = rule {
-    CommandStr("{{{#!html") ~ StringExceptS("}}}") ~ CommandStr("}}}") ~> NA.HTMLString
+    ICCommandStr("{{{#!html") ~ WL.? ~ StringExceptS("}}}") ~ CommandStr("}}}") ~> NA.HTMLString
   }
 
   def SpanBlock = rule { ColorRGBBlock | ColorTextBlock | SizeBlock }
