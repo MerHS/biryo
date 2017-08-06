@@ -19,6 +19,21 @@ table {
     border-spacing: 0;
     border-collapse: collapse;
     display: table;
+    border-color: grey;
+}
+
+tbody {
+    display: table-row-group;
+    vertical-align: middle;
+    border-color: inherit;
+}
+
+table caption {
+    color: black;
+    padding-top: 0;
+    padding-bottom: 3px;
+    text-align: center;
+    caption-side: top;
 }
 
 a {
@@ -29,6 +44,27 @@ a {
 p {
     margin-top: 0px;
     margin-bottom: 14px;
+}
+
+hr {
+    margin: 7px 0;
+    border-top: 1px solid #ccc;
+    border: 0;
+    height: 0;
+}
+
+pre {
+    padding: 7px;
+    margin: 0 0 16px 0;
+    background-color: #eeeeee;
+    border: 1px solid #dddddd;
+    border-radius: 3px;
+    overflow: auto;
+    overflow-x: auto;
+    display: block;
+    font-size: 90%;
+    line-height: 1.5;
+    color: #373a3c;
 }
 
 a:hover {
@@ -93,6 +129,10 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: bold;
     clear: both;
     margin: 27px 0 18px 0;
+}
+
+.title {
+    margin: 5px 0 18px 0;
 }
 
 .footnote-list {

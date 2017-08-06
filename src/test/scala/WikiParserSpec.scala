@@ -72,17 +72,17 @@ class WikiParserSpec extends Specification {
         paraMaker(NA.Strike(RS("")), NA.Strike(RS("")),NA.Strike(RS("")))
       )
 
-      parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test "), 2)
+      parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test ", false), 2)
       parseAll("== {{{ test }}} ==\n") ===
-        paraMaker(NA.RawHeadings(IS(" test "), 2), NA.BR)
+        paraMaker(NA.RawHeadings(IS(" test ", false), 2), NA.BR)
       parseAll("=== {{{ test }}} ==") ===
-        paraMaker(RS("=== "), IS(" test "), RS(" =="))
+        paraMaker(RS("=== "), IS(" test ", false), RS(" =="))
 
       parseAll("= {{{ test }}} ==") ===
-        paraMaker(RS("= "), IS(" test "), RS(" =="))
+        paraMaker(RS("= "), IS(" test ", false), RS(" =="))
 
       parseAll("== {{{ test }}} ==5") ===
-        paraMaker(RS("== "), IS(" test "), RS(" ==5"))
+        paraMaker(RS("== "), IS(" test ", false), RS(" ==5"))
     }
 
     "parse Basic Blocks" in {
@@ -120,12 +120,15 @@ class WikiParserSpec extends Specification {
 
     "parse Curly Brace - RawBlock" in {
       var parser = new WikiParser("{{{{\\{}}}}}")
-      parse(parser, parser.RawBlock.run()) === IS("{\\{}}")
-      parseAll("{{{{\\{}}}}}") === IS("{\\{}}")
+      parse(parser, parser.RawBlock.run()) === IS("{\\{}}", false)
+      parseAll("{{{{\\{}}}}}") === IS("{\\{}}", false)
 
       parser = new WikiParser("block{\\{{{{ {\\{{te\nst}}} }}}")
-      parse(parser, parser.LineTerm.run()) === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} "))
-      parseAll("block{\\{{{{ {\\{{te\nst}}} }}}") === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} "))
+      parse(parser, parser.LineTerm.run()) === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", false))
+      parseAll("block{\\{{{{ {\\{{te\nst}}} }}}") === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", false))
+
+      parseAll("{{{  \n this is Multi Liners\n}}}") ===
+        IS(" this is Multi Liners", isMultiLine=true)
     }
 
     "parse Curly Brace - SpanBlock" in {

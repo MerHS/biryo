@@ -27,7 +27,8 @@ class HTMLRenderer {
   var footnotes: List[FootNote] = List()
   var headings: List[Headings] = List()
   protected var headListExists: Boolean = false
-  // TODO : [각주]
+
+  // TODO : [각주] macro
   def generateHTML(title: String, mark: NamuMark): String = {
     mark.nfs(lister)
 
@@ -38,7 +39,7 @@ class HTMLRenderer {
       |<link rel="stylesheet" type="text/css" href="biryo.css" />
       |</head>
       |<body>""".stripMargin +
-    s"<h1>$title</h1>" +
+    s"<h1 ${c("title")}>$title</h1>" +
     (if (headListExists) "" else "<a name=\"headList\"></a>") +
     mainParagraph +
     s"<div ${c(footnoteListClass)}>" +
@@ -59,7 +60,7 @@ class HTMLRenderer {
 
   def renderMapper: NamuMap = {
       case RawString(s) => RawString(escapeHTML(s))
-      case InlineString(s) => InlineString(escapeHTML(s))
+      case InlineString(s, i) => InlineString(escapeHTML(s), i)
       case SyntaxBlock(l, v) => SyntaxBlock(l, escapeHTML(v))
       case HTMLString(s) => HTMLString(deleteExternalTag(s))
       case TableOfContents => HTMLString(headingsRenderer(headings.reverse))

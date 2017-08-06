@@ -132,7 +132,56 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 8. Table (Multi-Liner)
 
+  def TableCSS: Rule1[NA.TableStyle] = rule {
+    !"\\<" ~ '<' ~ (
+      (
+        // Parsing Table Style
+        ignoreCase("table") ~ WL.? ~
+          (
+            (ignoreCase("bordercolor=") ~ UnQuoteEW ~> NA.BorderColor) |
+            (ignoreCase("bgcolor=") ~ UnQuoteEW ~> (v => NA.BgColor(v, forTable=true))) |
+            (ignoreCase("align=") ~ UnQuoteEW ~>
+              ((v: String) => {
+                if (v.equalsIgnoreCase("center"))
+                  NA.Align(NA.AlignCenter, forTable=true)
+                else if (v.equalsIgnoreCase("right"))
+                  NA.Align(NA.AlignRightBottom, forTable=true)
+                else
+                  NA.Align(NA.AlignLeftTop, forTable=true)
+              })) |
+            (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=true))) |
+            (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=true)))
+          )
+      ) |
+      (
+        // Parsing Table Cell Span
+        ('-' ~ capture(CharPredicate.Digit.+) ~ '>' ~> (v => NA.ColSpan(v.toInt))) |
+        ('|' ~ capture(CharPredicate.Digit.+) ~ '>' ~> (v => NA.RowSpan(v.toInt, NA.AlignCenter))) |
+        ("^|" ~ capture(CharPredicate.Digit.+) ~ '>' ~> (v => NA.RowSpan(v.toInt, NA.AlignLeftTop))) |
+        ("v|" ~ capture(CharPredicate.Digit.+) ~ '>' ~> (v => NA.RowSpan(v.toInt, NA.AlignRightBottom)))
+      ) |
+      (
+        // Parsing Table Cell Text-Align
+        (":>" ~ push(NA.Align(NA.AlignCenter, forTable=false))) |
+        (")>" ~ push(NA.Align(NA.AlignRightBottom, forTable=false))) |
+        ("(>" ~ push(NA.Align(NA.AlignLeftTop, forTable=false)))
+      ) |
+      (
+        // Parsing Table Cell Style
+        (ignoreCase("bgcolor=") ~ UnQuoteEW ~> (v => NA.BgColor(v, forTable=false))) |
+        (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=true))) |
+        (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=true)))
+      ) |
+        // MISMATCHED => Fallback to Table Cell Color
+      (UnQuoteEW ~> (v => NA.BgColor(v, forTable=false)))
+    )
+  }
 
+  def UnQuoteEW: Rule1[String] = rule {
+    ('\"' ~ StringExceptSPred("\">\n\r") ~ "\">") |
+    ('\'' ~ StringExceptSPred("\'>\n\r") ~ "\'>") |
+    (StringExceptSPred(">\n\r") ~ ">")
+  }
 
   // Rule 7. BlockQuote (Multi-Liner)
 
@@ -290,13 +339,15 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def WordBox = rule { MatchBlock("{{|", "|}}") ~> NA.WordBox }
 
   def RawBlock: Rule1[NM] = rule {
-      CommandStr("{{{") ~ push(new SB) ~ RBResolver.* ~ "}}}" ~>
-        ((tsb: SB) => NA.InlineString(tsb.toString))
+    ((CommandStr("{{{") ~ WL.? ~ NewLine) | CommandStr("{{{")) ~
+      push(new SB) ~ RBResolver.* ~
+        (("\n}}}" ~ push(true)) | ("}}}" ~ push(false))) ~>
+        ((tsb: SB, isMultiLine: Boolean) => NA.InlineString(tsb.toString, isMultiLine))
   }
 
   /// 단일 역슬래시도 그대로 출력해야함
   private def RBResolver = rule {
-    (CurlyBraceBlock | ( !"}}}" ~ capture(ANY))) ~>
+    (CurlyBraceBlock | ( !("\n}}}" | "}}}") ~ capture(ANY))) ~>
       ((tsb: SB, s: String) => { tsb.append(s); tsb })
   }
 

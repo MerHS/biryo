@@ -18,7 +18,6 @@ class ASTPostProcessor(val title: String) {
     mark.nfsMap(footNoteProcessor).cfsMap(postProcessor)
   }
 
-  // TODO: {{{ }}} -> code / {{{\n \n}}} -> pre code
   // TODO: Comment 직후 BR 삭제
   // TODO: List, Indent 처리 / 다중 SpanMark 앞뒤공백 제거
   // TODO: DocType 모으기
