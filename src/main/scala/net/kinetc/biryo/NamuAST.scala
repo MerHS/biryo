@@ -63,22 +63,22 @@ object NamuAST {
     }
   }
 
-  trait HasNamuSeq extends NamuMark {
-    type NamuSeq <: TraversableOnce[NamuMark]
-    val valueSeq: NamuSeq
-    def constructor[F <: NamuSeq](nm: F): NamuMark
+  trait HasNamuSeq[+K <: NamuMark, T <: TraversableOnce[K]] extends NamuMark {
+    val valueSeq: T
+    def constructor(nm: T): NamuMark
 
     override def mkString =
       valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
     override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
     override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
     override def cfsMap(f: NamuMap) = {
-      val childMap = valueSeq.map(_.cfsMap(f))
+      val childMap = valueSeq.map(_.cfsMap(f)).asInstanceOf[T]
       val newThis = constructor(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
     override def nfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) f(this) else constructor(valueSeq.map(_.nfsMap(f)))
+      if (f.isDefinedAt(this)) f(this)
+      else constructor(valueSeq.map(_.nfsMap(f)).asInstanceOf[T])
   }
 
   trait HasHref {
@@ -93,9 +93,8 @@ object NamuAST {
     * List of NamuMark Objects (`Seq[NamuMark]` Wrapper)
     * @param valueSeq a sequence of NamuMark Objects
     */
-  case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq {
-    type NamuSeq = Seq[NamuMark]
-    def constructor[F <: NamuSeq](nm: F) = Paragraph(nm)
+  case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq[NamuMark, Seq[NamuMark]] {
+    def constructor(nm: Seq[NamuMark]) = Paragraph(nm)
   }
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
@@ -123,13 +122,11 @@ object NamuAST {
   ////// ------ Table ------ //////
 
   // TODO: Can I restrict a type of valueSeq to Seq[TR]??
-  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq {
-    type NamuSeq = Seq[TR]
-    def constructor[F <: NamuSeq](nm: F) = Table(nm, styles)
+  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq[TR, Seq[TR]] {
+    def constructor(nm: Seq[TR]) = Table(nm, styles)
   }
-  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq {
-    type NamuSeq = Seq[TD]
-    def constructor[F <: NamuSeq](nm: F) = TR(nm, styles)
+  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq[TD, Seq[TD]] {
+    def constructor(nm: Seq[TD]) = TR(nm, styles)
   }
   case class TD(value: NamuMark, styles: Seq[TableStyle]) extends HasNamu {
     def constructor(nm: NamuMark) = TD(nm, styles)
