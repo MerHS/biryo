@@ -3,7 +3,7 @@ package net.kinetc.biryo
 import scala.collection.Seq
 import HTMLRenderer._
 
-// TODO: instantiate NamuAST Applicative fmap function
+// TODO: instantiate Applicative fmap function of NamuAST
 object NamuAST {
   type NamuMap = PartialFunction[NamuMark, NamuMark]
   // s"\"" -> s"$q"  (Build Error???)
@@ -68,6 +68,12 @@ object NamuAST {
     def hrefMap(f: NamuHref => NamuHref): NamuMark = hrefConstructor(f(href))
   }
 
+  ////// ------ Paragraph ------- ///////
+
+  /**
+    * List of NamuMark Objects (`Seq[NamuMark]` Wrapper)
+    * @param valueSeq a sequence of NamuMark Objects
+    */
   case class Paragraph(valueSeq: Seq[NamuMark]) extends NamuMark {
     override def mkString =
       valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
@@ -84,14 +90,39 @@ object NamuAST {
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
 
+  ////// ------ Indent & Lists ------ //////
+
   case class ListObj(value: NamuMark, listType: ListType, indentSize: Int) extends HasNamu {
     def constructor(nm: NamuMark) = ListObj(nm, listType, indentSize)
   }
+
+  sealed trait ListType
+  // * star -> <ul> ~~ </ul>
+  case object Type_star extends ListType
+  // 1.#42 -> <ol type="1" start="42"> ~~ </ol>
+  case class Type_1(offset: Int = 1) extends ListType
+  // i.#42 -> <ol type="i" start="42"> ~~ </ol>
+  case class Type_i(offset: Int = 1) extends ListType
+  // I.#42 -> <ol type="I" start="42"> ~~ </ol>
+  case class Type_I(offset: Int = 1) extends ListType
+  // a.#42 -> <ol type="a" start="42"> ~~ </ol>
+  case class Type_a(offset: Int = 1) extends ListType
+  // A.#42 -> <ol type="A" start="42"> ~~ </ol>
+  case class Type_A(offset: Int = 1) extends ListType
+
+
+  ////// ------ Table ------ //////
+
+
+
+  ////// ------- BlockQuote ------ //////
 
   case class BlockQuote(value: NamuMark) extends HasNamu {
     override def mkString = s"<blockquote><div ${c(indentClass)}>${value.mkString}</div></blockquote>"
     def constructor(nm: NamuMark) = BlockQuote(nm)
   }
+
+  ////// ------ Single Bracket FootNote / Macros ------ //////
 
   case class FootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
     override def mkString = noteStr match {
@@ -137,8 +168,9 @@ object NamuAST {
     override def mkString = s"<a href=${q}entry://https://www.youtube.com/watch?v=$id$q>[유튜브 링크]</a>"
   }
 
+  ////// ------ Double Bracket Links ------ //////
+
   // [[파일:$href|$htmlOption]]
-  // entry:// will be added while postprocessing
   case class FileLink(href: String, htmlOption: Map[String, String]) extends NamuMark {
     // Fallback to Link (for Mdict)
     override def mkString = s"<a href=${q}entry://$href$q>[파일:$href]</a>"
@@ -169,6 +201,8 @@ object NamuAST {
     def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, alias)
   }
 
+  ////// ------ Curly Brace Blocks ------ //////
+
   // {{{#!syntax $language $value}}}
   case class SyntaxBlock(language: String, value: String) extends NamuMark {
     override def mkString = s"<pre><code>$value</code></pre>"
@@ -191,6 +225,12 @@ object NamuAST {
     def constructor(nm: NamuMark) = ColorBlock(nm, color)
   }
 
+  ////// ------ One-Liners ------- //////
+
+  // ##Comment -> Comment("Comment")
+  case class Comment(value: String) extends NamuMark
+
+  // === Heading === -> RawHeadings(RawString("Heading"), 3)
   case class RawHeadings(value: NamuMark, size: Int) extends HasNamu {
     override def mkString = s"<h$size>${value.mkString}</h$size><hr>"
     def constructor(nm: NamuMark) = RawHeadings(nm, size)
@@ -206,6 +246,7 @@ object NamuAST {
     def constructor(nm: NamuMark) = Headings(nm, no)
   }
 
+  ////// ------ Span Marks ------ //////
 
   sealed trait SpanMark
   case class Strike(value: NamuMark) extends HasNamu with SpanMark {
@@ -233,21 +274,12 @@ object NamuAST {
     def constructor(nm: NamuMark) = Italic(nm)
   }
 
-
-  // #redirect: 한글 -> Redirect(NormalHref(한글))
-//  case class Redirect(href: NamuHref) extends NamuMark with HasHref {
-//    override def mkString = s"<a href=$q${href.value}$q>리다이렉트:${href.value}</a>"
-//    override def hrefConstructor(href: NamuHref) = Redirect(href)
-//  }
-
   case class Redirect(value: String) extends NamuMark {
     override def mkString = s"<a href=${q}entry://$value$q>리다이렉트:$value</a>"
-
-    //override def hrefConstructor(href: NamuHref) = Redirect(href)
   }
-  // ##Comment -> Comment("Comment")
-  case class Comment(value: String) extends NamuMark
-  // TODO: remove youtube / external href
+
+  ////// ------ Basic Blocks ------- //////
+
   // HTML Unescaped String {{{#!html ... }}}
   case class HTMLString(value: String) extends NamuMark {
     override def mkString = value
@@ -269,6 +301,7 @@ object NamuAST {
     override def mkString = "<hr>"
   }
 
+  ////// ------ href Trait ------ //////
 
   sealed trait NamuHref {
     val value: String
@@ -297,21 +330,6 @@ object NamuAST {
   case class ChildDocHref(childHref: NamuHref) extends NamuHref {
     val value: String = s"/${childHref.value}"
   }
-
-  sealed trait ListType
-  // * star -> <ul> ~~ </ul>
-  case object Type_star extends ListType
-  // 1.#42 -> <ol type="1" start="42"> ~~ </ol>
-  case class Type_1(offset: Int = 1) extends ListType
-  // i.#42 -> <ol type="i" start="42"> ~~ </ol>
-  case class Type_i(offset: Int = 1) extends ListType
-  // I.#42 -> <ol type="I" start="42"> ~~ </ol>
-  case class Type_I(offset: Int = 1) extends ListType
-  // a.#42 -> <ol type="a" start="42"> ~~ </ol>
-  case class Type_a(offset: Int = 1) extends ListType
-  // A.#42 -> <ol type="A" start="42"> ~~ </ol>
-  case class Type_A(offset: Int = 1) extends ListType
-
 
   // 최대한 Paragraph라는 Seq[NamuMark] Wrapper를 줄이기
   private[biryo] def pbResolver(pb: ParagraphBuilder): NamuMark = {

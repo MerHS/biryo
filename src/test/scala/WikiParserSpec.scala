@@ -239,7 +239,7 @@ class WikiParserSpec extends Specification {
         )
       )
 
-      var parser = new WikiParser("[youtube(woei2928fa,width=640,height=130)]")
+      var parser = new WikiParser("[youtube(woei2928fa, width=640, height=130)]")
       parse(parser, parser.YoutubeLink.run()) === NA.YoutubeLink(
         "woei2928fa", Map("width" -> "640", "height" -> "130")
       )

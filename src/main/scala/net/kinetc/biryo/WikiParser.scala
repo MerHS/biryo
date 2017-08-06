@@ -68,8 +68,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '|' => LineTerm // Table Multiline
         case '#' => Redirect | Comment | LineTerm
         case '-' => HR | LineTerm
-        case '>' => BlockQuote | LineTerm // BlockQuote Multiline
-        case '[' => LineStartMacro | LineTerm // 목차 / 각주목록
+        case '>' => BlockQuote | LineTerm
+        case '[' => LineStartMacro | LineTerm
         case _ => LineTerm
       }
     }
@@ -128,9 +128,11 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       }
     }
   }
-  // Rule 9. Table (Multi-Liner)
+  // Rule 9. Indent & Lists (Multi-Liner)
 
-  // Rule 8. Indent & Lists (Multi-Liner)
+  // Rule 8. Table (Multi-Liner)
+
+
 
   // Rule 7. BlockQuote (Multi-Liner)
 
@@ -183,8 +185,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def DateMacro = rule { (ICCommandStr("[date]") | ICCommandStr("[datetime]")) ~ push(NA.DateMacro) }
   def Anchor = rule { ICCommandStr("[anchor(") ~ LineStringExceptC(')') ~ CommandStr(")]") ~> NA.Anchor }
   def YoutubeLink = rule {
-    ICCommandStr("[youtube(") ~ capture(noneOf(",)\n ").+).+(',') ~ CommandStr(")]") ~>
-      ((args: Seq[String]) => NA.YoutubeLink(args.head, argParse(args.tail)))
+    ICCommandStr("[youtube(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
+      ((args: Seq[String]) => NA.YoutubeLink(args.head.trim, argParse(args.tail)))
   }
 
 
