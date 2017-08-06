@@ -242,7 +242,7 @@ class WikiParserSpec extends Specification {
         )
       )
 
-      var parser = new WikiParser("[youtube(woei2928fa, width=640, height=130)]")
+      val parser = new WikiParser("[youtube(woei2928fa, width=640, height=130)]")
       parse(parser, parser.YoutubeLink.run()) === NA.YoutubeLink(
         "woei2928fa", Map("width" -> "640", "height" -> "130")
       )
@@ -285,8 +285,42 @@ class WikiParserSpec extends Specification {
         ))
     }
 
-    "parse from file - Table" in {
-      1 === 1
+    "parse TableCSS" in {
+      var parser = new WikiParser("<table bordercolor=#FFEECC>")
+      parse(parser, parser.TableCSS.run()) === NA.BorderColor("#FFEECC")
+
+      parser = new WikiParser("<TableBgCOlor=Ruby>")
+      parse(parser, parser.TableCSS.run()) === NA.BgColor("Ruby", forTable=true)
+
+      parser = new WikiParser("<table  align=\"Right\">")
+      parse(parser, parser.TableCSS.run()) === NA.Align(NA.AlignRightBottom, forTable=true)
+
+      parser = new WikiParser("<Table width=\'252px\'>")
+      parse(parser, parser.TableCSS.run()) === NA.Width("252px", forTable=true)
+
+      parser = new WikiParser("<-5233>")
+      parse(parser, parser.TableCSS.run()) === NA.ColSpan(5233)
+
+      parser = new WikiParser("<|3242>")
+      parse(parser, parser.TableCSS.run()) === NA.RowSpan(3242, NA.AlignCenter)
+
+      parser = new WikiParser("<^|3>")
+      parse(parser, parser.TableCSS.run()) === NA.RowSpan(3, NA.AlignLeftTop)
+
+      parser = new WikiParser("<:>")
+      parse(parser, parser.TableCSS.run()) === NA.Align(NA.AlignCenter, forTable=false)
+
+      parser = new WikiParser("<width=303px>")
+      parse(parser, parser.TableCSS.run()) === NA.Width("303px", forTable=false)
+
+      parser = new WikiParser("<height=\"2em\">")
+      parse(parser, parser.TableCSS.run()) === NA.Height("2em", forTable=false)
+
+      parser = new WikiParser("<#BAB0BA>")
+      parse(parser, parser.TableCSS.run()) === NA.BgColor("#BAB0BA", forTable=false)
+
+      parser = new WikiParser("<WhiteBalance>")
+      parse(parser, parser.TableCSS.run()) === NA.BgColor("WhiteBalance", forTable=false)
     }
 
     "parse from file - Indent / Lists" in {

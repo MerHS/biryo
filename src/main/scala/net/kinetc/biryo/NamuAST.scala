@@ -129,7 +129,6 @@ object NamuAST {
 
   ////// ------ Table ------ //////
 
-  // TODO: Can I restrict a type of valueSeq to Seq[TR]??
   case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq[TR, Seq[TR]](valueSeq) {
     def constructor(nm: Seq[TR]) = Table(nm, styles)
   }
@@ -139,7 +138,6 @@ object NamuAST {
   case class TD(value: NamuMark, styles: Seq[TableStyle]) extends HasNamu {
     def constructor(nm: NamuMark) = TD(nm, styles)
   }
-
 
   ////// ------ Table Styles ------ //////
 

@@ -169,8 +169,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       (
         // Parsing Table Cell Style
         (ignoreCase("bgcolor=") ~ UnQuoteEW ~> (v => NA.BgColor(v, forTable=false))) |
-        (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=true))) |
-        (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=true)))
+        (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=false))) |
+        (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=false)))
       ) |
         // MISMATCHED => Fallback to Table Cell Color
       (UnQuoteEW ~> (v => NA.BgColor(v, forTable=false)))
