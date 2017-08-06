@@ -132,15 +132,33 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 8. Table (Multi-Liner)
 
+//  def Table: Rule1[NA.Table] = {
+//    TableHeader ~
+//      (TableRow ~> ((table: NA.Table, tr: NA.TR) =>
+//        NA.Table(table.valueSeq :+ tr, table.styles))).*
+//  }
+//
+//  def TableHeader: Rule1[NA.Table] = {
+//
+//  }
+//
+//  def TableRow: Rule1[NA.TR] = {
+//
+//  }
+//  // TODO: space 글 space -> NA.Align(NA.AlignCenter, forTable=false)
+//  def TableData: Rule1[NA.TD] = {
+//
+//  }
+
   def TableCSS: Rule1[NA.TableStyle] = rule {
     !"\\<" ~ '<' ~ (
       (
         // Parsing Table Style
         ignoreCase("table") ~ WL.? ~
           (
-            (ignoreCase("bordercolor=") ~ UnQuoteEW ~> NA.BorderColor) |
-            (ignoreCase("bgcolor=") ~ UnQuoteEW ~> (v => NA.BgColor(v, forTable=true))) |
-            (ignoreCase("align=") ~ UnQuoteEW ~>
+            (ignoreCase("bordercolor=") ~ UnquoteStr ~> NA.BorderColor) |
+            (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=true))) |
+            (ignoreCase("align=") ~ UnquoteStr ~>
               ((v: String) => {
                 if (v.equalsIgnoreCase("center"))
                   NA.Align(NA.AlignCenter, forTable=true)
@@ -149,8 +167,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
                 else
                   NA.Align(NA.AlignLeftTop, forTable=true)
               })) |
-            (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=true))) |
-            (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=true)))
+            (ignoreCase("width=") ~ UnquoteStr ~> (v => NA.Width(v, forTable=true))) |
+            (ignoreCase("height=") ~ UnquoteStr ~> (v => NA.Height(v, forTable=true)))
           )
       ) |
       (
@@ -168,16 +186,16 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ) |
       (
         // Parsing Table Cell Style
-        (ignoreCase("bgcolor=") ~ UnQuoteEW ~> (v => NA.BgColor(v, forTable=false))) |
-        (ignoreCase("width=") ~ UnQuoteEW ~> (v => NA.Width(v, forTable=false))) |
-        (ignoreCase("height=") ~ UnQuoteEW ~> (v => NA.Height(v, forTable=false)))
+        (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=false))) |
+        (ignoreCase("width=") ~ UnquoteStr ~> (v => NA.Width(v, forTable=false))) |
+        (ignoreCase("height=") ~ UnquoteStr ~> (v => NA.Height(v, forTable=false)))
       ) |
         // MISMATCHED => Fallback to Table Cell Color
-      (UnQuoteEW ~> (v => NA.BgColor(v, forTable=false)))
+      (UnquoteStr ~> (v => NA.BgColor(v, forTable=false)))
     )
   }
 
-  def UnQuoteEW: Rule1[String] = rule {
+  private def UnquoteStr: Rule1[String] = rule {
     ('\"' ~ StringExceptSPred("\">\n\r") ~ "\">") |
     ('\'' ~ StringExceptSPred("\'>\n\r") ~ "\'>") |
     (StringExceptSPred(">\n\r") ~ ">")
@@ -241,9 +259,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 4. Links & Anchors (Double Brackets)
 
-  def Link = rule { FileLink | DocType | DocLink }
+  def Link: Rule1[NM] = rule { FileLink | DocType | DocLink }
 
-  def DocType = rule {
+  def DocType: Rule1[NM] = rule {
     CommandStr("[[분류:") ~ LineStringExceptS("]]") ~
       CommandStr("]]") ~ WL ~ CheckLineEnd ~> NA.DocType
   }
@@ -285,10 +303,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     )
   }
 
-  def LinkAlias = rule {
+  private def LinkAlias = rule {
     LineTermEndWith("]]") ~> ((link: NA.DocLink, nm: NM) => NA.DocLink(link.href, Some(nm)))
   }
-
 
   // Rule 3. Curly Brace Blocks
 
@@ -311,7 +328,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     ICCommandStr("{{{#!html") ~ WL.? ~ capture((!"}}}" ~ ANY).*) ~ "}}}" ~> NA.HTMLString
   }
 
-  def SpanBlock = rule { ColorRGBBlock | ColorTextBlock | SizeBlock }
+  def SpanBlock: Rule1[NM] = rule {
+    ColorRGBBlock | ColorTextBlock | SizeBlock
+  }
 
   def ColorRGBBlock = rule {
     CommandStr("{{{#") ~

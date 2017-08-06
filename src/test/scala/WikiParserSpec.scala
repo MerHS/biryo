@@ -120,7 +120,7 @@ class WikiParserSpec extends Specification {
 
     "parse Curly Brace - RawBlock" in {
       var parser = new WikiParser("{{{{\\{}}}}}")
-      parse(parser, parser.RawBlock.run()) === IS("{\\{}}", false)
+      parse(parser, parser.RawBlock.run()) === IS("{\\{}}", isMultiLine=false)
       parseAll("{{{{\\{}}}}}") === IS("{\\{}}", false)
 
       parser = new WikiParser("block{\\{{{{ {\\{{te\nst}}} }}}")

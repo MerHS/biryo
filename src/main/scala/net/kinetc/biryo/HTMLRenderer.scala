@@ -14,6 +14,8 @@ object HTMLRenderer {
   val indentClass = "indent"
   val wordBoxClass = "word-box"
   val docTypeClass = "doctype"
+  val tableDivClass = "table-wrapper"
+  val tableClass = "table-top"
 
   def c(className: String) = "class=\"" + className + "\""
 }

@@ -57,6 +57,7 @@ object NamuAST {
         val newThis = f(this)
         newThis match {
           case t: HasNamu => t.constructor(t.value.nfsMap(f))
+          case s: HasNamuSeq[_, _] => s.map(f)
           case _ => newThis
         }
       } else {
@@ -73,20 +74,30 @@ object NamuAST {
     */
   abstract class HasNamuSeq[+K <: NamuMark, T](valueSeq: T)(implicit e: T => Traversable[K])
     extends NamuMark {
-    def constructor(nm: T): NamuMark
+    def constructorSeq(nm: T): HasNamuSeq[K, T]
 
     override def mkString =
-      valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
+      valueSeq.map(_.mkString).addString(new StringBuilder).toString
     override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
     override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
     override def cfsMap(f: NamuMap) = {
       val childMap = valueSeq.map(_.cfsMap(f)).asInstanceOf[T]
-      val newThis = constructor(childMap)
+      val newThis = constructorSeq(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
     override def nfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) f(this)
-      else constructor(valueSeq.map(_.nfsMap(f)).asInstanceOf[T])
+      if (f.isDefinedAt(this)) {
+        val newThis = f(this)
+        newThis match {
+          case t: HasNamu => t.constructor(t.value.nfsMap(f))
+          case s: HasNamuSeq[_, _] => s.map(f)
+          case _ => newThis
+        }
+      } else {
+        map(f)
+      }
+    def map(f: NamuMap): NamuMark =
+      constructorSeq(valueSeq.map(_.nfsMap(f)).asInstanceOf[T])
   }
 
   trait HasHref {
@@ -102,7 +113,7 @@ object NamuAST {
     * @param valueSeq a sequence of NamuMark Objects
     */
   case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq[NamuMark, Seq[NamuMark]](valueSeq) {
-    def constructor(nm: Seq[NamuMark]) = Paragraph(nm)
+    def constructorSeq(nm: Seq[NamuMark]) = Paragraph(nm)
   }
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
@@ -129,14 +140,98 @@ object NamuAST {
 
   ////// ------ Table ------ //////
 
-  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq[TR, Seq[TR]](valueSeq) {
-    def constructor(nm: Seq[TR]) = Table(nm, styles)
+  case class TableWrapper(value: Table, caption: Option[NamuMark])
+    extends HasNamuSeq[NamuMark, Option[NamuMark]](caption) {
+    def constructorSeq(nm: Option[NamuMark]) = TableWrapper(value, nm)
+
+    override def mkString =
+      if (caption.isDefined) {
+        s"<div ${c(tableDivClass)}>${value.mkStringWCaption(caption.get)}</div>"
+      } else {
+        s"<div ${c(tableDivClass)}>${value.mkString}</div>"
+      }
+    override def cfs(f: (NamuMark) => Unit) = {
+      caption.foreach(_.cfs(f)); value.cfs(f); f(this)
+    }
+    override def nfs(f: (NamuMark) => Unit) = {
+      f(this); caption.foreach(_.nfs(f)); value.nfs(f)
+    }
+    override def cfsMap(f: NamuMap) = {
+      val captionMap = caption.map(_.cfsMap(f))
+      val valueMap = value.cfsMap(f)
+      val newThis = valueMap match {
+        case t: Table => TableWrapper(t, captionMap)
+        case _ => valueMap
+      }
+      if (f.isDefinedAt(newThis)) f(newThis) else newThis
+    }
+    override def nfsMap(f: NamuMap): NamuMark = {
+      if (f.isDefinedAt(this)) {
+        val newThis = f(this)
+        newThis match {
+          case t: HasNamu => t.constructor(t.value.nfsMap(f))
+          case s: HasNamuSeq[_, _] => s.map(f)
+          case _ => newThis
+        }
+      } else {
+        map(f)
+      }
+    }
+
+    override def map(f: NamuMap): NamuMark = {
+      val captionMap = caption.map(_.nfsMap(f))
+      val valueMap = value.nfsMap(f)
+      valueMap match {
+        case t: Table => TableWrapper(t, captionMap)
+        case _ => valueMap
+      }
+    }
   }
-  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq[TD, Seq[TD]](valueSeq) {
-    def constructor(nm: Seq[TD]) = TR(nm, styles)
+
+  trait HasTableStyle {
+    val styles: Seq[TableStyle]
+    def attrStr: String = {
+      val attrs = styles.filter(_.isInstanceOf[TableAttr]).map(_.asInstanceOf[TableAttr])
+      if (attrs.nonEmpty) {
+        attrs.map(_.attr).addString(new StringBuilder, " ").toString
+      } else ""
+    }
+    def styleStr: String = {
+      val inlineStyles = styles.filter(_.isInstanceOf[TableCSS]).map(_.asInstanceOf[TableCSS])
+      if (inlineStyles.nonEmpty) {
+        val sb = new StringBuilder("style=\"")
+        inlineStyles.map(_.style).addString(sb, ";").append('\"').toString
+      } else ""
+    }
   }
-  case class TD(value: NamuMark, styles: Seq[TableStyle]) extends HasNamu {
+
+  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle])
+    extends HasNamuSeq[TR, Seq[TR]](valueSeq) with HasTableStyle {
+
+    def constructorSeq(nm: Seq[TR]) = Table(nm, styles)
+    override def mkString = s"<table $attrStr $styleStr ${c(tableClass)}><tbody>$trString</tbody></table>"
+
+    def mkStringWCaption(caption: NamuMark): String =
+      s"<table $attrStr $styleStr ${c(tableClass)}><caption>${caption.mkString}</caption><tbody>$trString</tbody></table>"
+
+    def trString: String =
+      valueSeq.map(_.mkString).addString(new StringBuilder).toString
+  }
+
+  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle])
+    extends HasNamuSeq[TD, Seq[TD]](valueSeq) with HasTableStyle {
+
+    def constructorSeq(nm: Seq[TD]) = TR(nm, styles)
+    override def mkString = s"<tr $attrStr $styleStr>$tdString</tr>"
+
+    def tdString = valueSeq.map(_.mkString).addString(new StringBuilder).toString
+  }
+
+  case class TD(value: NamuMark, styles: Seq[TableStyle])
+    extends HasNamu with HasTableStyle {
+
     def constructor(nm: NamuMark) = TD(nm, styles)
+    override def mkString = s"<td $attrStr $styleStr>${value.mkString}</td>"
   }
 
   ////// ------ Table Styles ------ //////
@@ -154,41 +249,41 @@ object NamuAST {
     def style: String
   }
   case class BgColor(value: String, forTable: Boolean) extends TableCSS {
-    def style: String = s"background-color:$value;"
+    def style: String = s"background-color:$value"
   }
   case class RowBgColor(value: String) extends TableCSS {
-    def style: String = s"background-color:$value;"
+    def style: String = s"background-color:$value"
   }
   case class BorderColor(value: String) extends TableCSS {
-    def style: String = s"border:2px solid $value;"
+    def style: String = s"border:2px solid $value"
   }
   case class Width(value: String, forTable: Boolean) extends TableCSS {
-    def style: String = s"width:$value;"
+    def style: String = s"width:$value"
   }
   case class Height(value: String, forTable: Boolean) extends TableCSS {
-    def style: String = s"height:$value;"
+    def style: String = s"height:$value"
   }
   case class Align(align: TableAlign, forTable: Boolean) extends TableCSS {
     def style: String =
       if (forTable) {
         align match {
-          case AlignCenter => "margin:auto;"
-          case AlignRightBottom => "margin-right:0px;"
-          case AlignLeftTop => "margin-left:0px;" // default
+          case AlignCenter => "margin:auto"
+          case AlignRightBottom => "margin-right:0px"
+          case AlignLeftTop => "margin-left:0px" // default
         }
       } else {
         align match {
-          case AlignCenter => "text-align:center;"
-          case AlignRightBottom => "text-align:right;"
-          case AlignLeftTop => "text-align:left;" // default
+          case AlignCenter => "text-align:center"
+          case AlignRightBottom => "text-align:right"
+          case AlignLeftTop => "text-align:left" // default
         }
       }
   }
   case class RowSpan(value: Int, align: TableAlign) extends TableCSS with TableAttr {
     def style: String = align match {
       case AlignCenter => "" // default
-      case AlignRightBottom => "vertical-align:bottom;"
-      case AlignLeftTop => "vertical-align:top;"
+      case AlignRightBottom => "vertical-align:bottom"
+      case AlignLeftTop => "vertical-align:top"
     }
     def attr: String = s"rowspan=${toQ(value.toString)}"
   }
@@ -271,7 +366,7 @@ object NamuAST {
       case None => s"<a href=${toQ(href.value)}>${href.value}</a>"
     }
 
-    def constructor(nm: Option[NamuMark]) = DocLink(href, nm)
+    def constructorSeq(nm: Option[NamuMark]) = DocLink(href, nm)
     def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, valueSeq)
   }
 
