@@ -3,7 +3,6 @@ package net.kinetc.biryo
 import scala.collection.Seq
 import HTMLRenderer._
 
-// TODO: instantiate Applicative fmap function of NamuAST
 object NamuAST {
   type NamuMap = PartialFunction[NamuMark, NamuMark]
   // s"\"" -> s"$q"  (Build Error???)
@@ -38,6 +37,9 @@ object NamuAST {
     def nfsMap(f: NamuMap): NamuMark = cfsMap(f)
   }
 
+  /**
+    * A Trait which has a single NamuMark value
+    */
   trait HasNamu extends NamuMark {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
@@ -63,8 +65,14 @@ object NamuAST {
     }
   }
 
-  trait HasNamuSeq[+K <: NamuMark, T <: TraversableOnce[K]] extends NamuMark {
-    val valueSeq: T
+  /**
+    * A Class that has a derived type or sequence of NamuMark
+    * @param valueSeq Traversable NamuMark Values
+    * @tparam K Child of NamuMark
+    * @tparam T can be Traversable implicitly (e.g. Option, Seq, ...)
+    */
+  abstract class HasNamuSeq[+K <: NamuMark, T](valueSeq: T)(implicit e: T => Traversable[K])
+    extends NamuMark {
     def constructor(nm: T): NamuMark
 
     override def mkString =
@@ -93,7 +101,7 @@ object NamuAST {
     * List of NamuMark Objects (`Seq[NamuMark]` Wrapper)
     * @param valueSeq a sequence of NamuMark Objects
     */
-  case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq[NamuMark, Seq[NamuMark]] {
+  case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq[NamuMark, Seq[NamuMark]](valueSeq) {
     def constructor(nm: Seq[NamuMark]) = Paragraph(nm)
   }
 
@@ -122,10 +130,10 @@ object NamuAST {
   ////// ------ Table ------ //////
 
   // TODO: Can I restrict a type of valueSeq to Seq[TR]??
-  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq[TR, Seq[TR]] {
+  case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq[TR, Seq[TR]](valueSeq) {
     def constructor(nm: Seq[TR]) = Table(nm, styles)
   }
-  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq[TD, Seq[TD]] {
+  case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq[TD, Seq[TD]](valueSeq) {
     def constructor(nm: Seq[TD]) = TR(nm, styles)
   }
   case class TD(value: NamuMark, styles: Seq[TableStyle]) extends HasNamu {
@@ -256,25 +264,17 @@ object NamuAST {
     override def mkString = s"<div ${c(docTypeClass)}>" +
       s"분류: <a href=${toQ(s"entry://분류:$docType")}>$docType</a></div>"
   }
+
   // [[$href|$alias]] -> href will be changed to NormalHref after the postprocessing
-  case class DocLink(href: NamuHref, alias: Option[NamuMark]) extends HasNamu with HasHref {
-    override def mkString = alias match {
+  case class DocLink(href: NamuHref, valueSeq: Option[NamuMark])
+    extends HasNamuSeq[NamuMark, Option[NamuMark]](valueSeq) with HasHref {
+    override def mkString = valueSeq match {
       case Some(nm) => s"<a href=${toQ(href.value)}>${nm.mkString}</a>"
       case None => s"<a href=${toQ(href.value)}>${href.value}</a>"
     }
-    val value: NamuMark = alias.orNull
-    override def constructor(nm: NamuMark) = DocLink(href, Some(nm))
 
-    override def cfs(f: (NamuMark) => Unit) = { alias.foreach(_.cfs(f)); f(this) }
-    override def nfs(f: (NamuMark) => Unit) = { f(this); alias.foreach(_.nfs(f)) }
-    override def cfsMap(f: NamuMap) = {
-      val childMap = alias.map(_.cfsMap(f))
-      val newThis = DocLink(href, childMap)
-      if (f.isDefinedAt(newThis)) f(newThis) else newThis
-    }
-    override def nfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) f(this) else DocLink(href, alias.map(_.nfsMap(f)))
-    def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, alias)
+    def constructor(nm: Option[NamuMark]) = DocLink(href, nm)
+    def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, valueSeq)
   }
 
   ////// ------ Curly Brace Blocks ------ //////
