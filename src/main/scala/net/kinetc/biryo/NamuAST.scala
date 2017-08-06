@@ -2,11 +2,10 @@ package net.kinetc.biryo
 
 import scala.collection.Seq
 import HTMLRenderer._
-import net.kinetc.biryo.NamuAST.NamuMark
 
 // TODO: instantiate Applicative fmap function of NamuAST
 object NamuAST {
-  type NamuMap[-U >: NamuMark, +T <: NamuMark] = PartialFunction[U, T]
+  type NamuMap = PartialFunction[NamuMark, NamuMark]
   // s"\"" -> s"$q"  (Build Error???)
   val q = '"'
   def toQ(s: String) = '\"' + s + '\"'
@@ -17,43 +16,41 @@ object NamuAST {
     /**
       * Child-First Traversing
       */
-    def cfs[T <: NamuMark](f: T => Unit): Unit = f(this)
+    def cfs(f: NamuMark => Unit): Unit = f(this)
 
     /**
       * Node-First Traversing
       */
-    def nfs[T <: NamuMark](f: T => Unit): Unit = f(this)
+    def nfs(f: NamuMark => Unit): Unit = f(this)
 
     /**
       * Child-First Node Mapping
       * @param f: PartialFunction, don't need to apply it to child
       * @return default: this, or f.apply(this)
       */
-    def cfsMap[U >: NamuMark, T <: NamuMark](f: NamuMap[U, T]): NamuMark =
-      if (f.isDefinedAt(this)) f(this) else this
+    def cfsMap(f: NamuMap): NamuMark = if (f.isDefinedAt(this)) f(this) else this
 
     /**
       * Node-First Node Mapping
       * @param f PartialFunction, You should apply it to child when `this` is Paragraph or DocLink
       * @return default: this, or f.apply(this)
       */
-    def nfsMap[U >: NamuMark, T <: NamuMark](f: NamuMap[U, T]): NamuMark =
-      cfsMap(f)
+    def nfsMap(f: NamuMap): NamuMark = cfsMap(f)
   }
 
   trait HasNamu extends NamuMark {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
 
-    override def cfs[T <: NamuMark](f: T => Unit) = { value.cfs(f); f(this) }
-    override def nfs[T <: NamuMark](f: T => Unit) = { f(this); value.nfs(f) }
+    override def cfs(f: (NamuMark) => Unit) = { value.cfs(f); f(this) }
+    override def nfs(f: (NamuMark) => Unit) = { f(this); value.nfs(f) }
 
-    override def cfsMap[U >: NamuMark, T <: NamuMark](f: NamuMap[U, T]): NamuMark = {
+    override def cfsMap(f: NamuMap): NamuMark = {
       val childMap = value.cfsMap(f)
       val newThis = constructor(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def nfsMap[U >: NamuMark, T <: NamuMark](f: NamuMap[U, T]): NamuMark = {
+    override def nfsMap(f: NamuMap): NamuMark = {
       if (f.isDefinedAt(this)) {
         val newThis = f(this)
         newThis match {
@@ -66,20 +63,21 @@ object NamuAST {
     }
   }
 
-  trait HasNamuSeq[T <: NamuMark] extends NamuMark {
-    val valueSeq: Seq[T]
-    def constructor(nm: Seq[T]): HasNamuSeq[T]
+  trait HasNamuSeq extends NamuMark {
+    type NamuSeq <: TraversableOnce[NamuMark]
+    val valueSeq: NamuSeq
+    def constructor[F <: NamuSeq](nm: F): NamuMark
 
     override def mkString =
       valueSeq.foldLeft(new StringBuilder)((sb, nm) => sb.append(nm.mkString)).toString
-    override def cfs[F <: NamuMark](f: F => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
-    override def nfs[F <: NamuMark](f: F => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
-    override def cfsMap[U >: NamuMark, F <: NamuMark](f: NamuMap[U, F]): NamuMark = {
+    override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
+    override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
+    override def cfsMap(f: NamuMap) = {
       val childMap = valueSeq.map(_.cfsMap(f))
       val newThis = constructor(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def nfsMapcfsMap[U >: NamuMark, T <: NamuMark](f: NamuMap[U, T]): NamuMark =
+    override def nfsMap(f: NamuMap): NamuMark =
       if (f.isDefinedAt(this)) f(this) else constructor(valueSeq.map(_.nfsMap(f)))
   }
 
@@ -96,7 +94,8 @@ object NamuAST {
     * @param valueSeq a sequence of NamuMark Objects
     */
   case class Paragraph(valueSeq: Seq[NamuMark]) extends HasNamuSeq {
-    def constructor(nm: Seq[NamuMark]) = Paragraph(nm)
+    type NamuSeq = Seq[NamuMark]
+    def constructor[F <: NamuSeq](nm: F) = Paragraph(nm)
   }
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
@@ -123,15 +122,19 @@ object NamuAST {
 
   ////// ------ Table ------ //////
 
+  // TODO: Can I restrict a type of valueSeq to Seq[TR]??
   case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle]) extends HasNamuSeq {
-    def constructor(nm: Seq[NamuMark]) = Table(nm, styles)
+    type NamuSeq = Seq[TR]
+    def constructor[F <: NamuSeq](nm: F) = Table(nm, styles)
   }
   case class TR(valueSeq: Seq[TD], styles: Seq[TableStyle]) extends HasNamuSeq {
-    def constructor(nm: Seq[NamuMark]) = TR(nm, styles)
+    type NamuSeq = Seq[TD]
+    def constructor[F <: NamuSeq](nm: F) = TR(nm, styles)
   }
   case class TD(value: NamuMark, styles: Seq[TableStyle]) extends HasNamu {
     def constructor(nm: NamuMark) = TD(nm, styles)
   }
+
 
   ////// ------ Table Styles ------ //////
 
