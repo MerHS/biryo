@@ -34,7 +34,7 @@ class HTMLRenderer {
   def generateHTML(title: String, mark: NamuMark): String = {
     mark.nfs(lister)
 
-    val mainParagraph = mark.cfsMap(renderMapper).mkString.replace("\n", "<br>")
+    val mainParagraph = mainBody(mark)
 
     // head + title + main paragraph + footnote list
     """<head>
@@ -51,6 +51,9 @@ class HTMLRenderer {
     ).mkString +
     "</div></body>"
   }
+
+  def mainBody(mark: NamuMark) =
+    mark.cfsMap(renderMapper).mkString.replace("\n", "<br>")
 
   def lister(mark: NamuMark): Unit = {
     mark match {

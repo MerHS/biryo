@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.io.Source
 
 object MainApp extends App {
@@ -16,7 +15,7 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namuwiki.json"
+  val namuFile = "../namu3.json"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
@@ -46,6 +45,16 @@ object MainApp extends App {
         mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
         rrIndex = (rrIndex + 1) % 3
         docCount += 1
+      //        val parser = new WikiParser(text)
+      //        val renderer = new HTMLRenderer
+      //          parser.NamuMarkRule.run() match {
+      //          case Success(result) =>
+      //            val postResult = new ASTPostProcessor(title).postProcessAST(result)
+      //            val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
+      //            println(compiledText)
+      //          case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
+      //          case Failure(e)             => e.printStackTrace()
+      //        }
       case _ => ()
     }
   }

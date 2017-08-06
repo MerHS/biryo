@@ -1,5 +1,5 @@
 
-import net.kinetc.biryo.{NamuAST, WikiParser}
+import net.kinetc.biryo.{ASTPostProcessor, HTMLRenderer, NamuAST, WikiParser}
 import org.parboiled2._
 import org.specs2.mutable.Specification
 
@@ -326,11 +326,25 @@ class WikiParserSpec extends Specification {
     "parse from file - Indent / Lists" in {
       1 === 1
     }
+  }
 
-    "parse NamuMark Original Document file" in {
-      val namuHelpTxt = Source.fromFile("src/test/namu_help.txt").mkString
-      parseAll(namuHelpTxt).isInstanceOf[NM] === true
+  "HTMLRenderer" should {
+    "render Link" in {
+      renderAll("test", "[[Simple Link]]") === """<a href="entry://Simple Link">Simple Link</a>"""
     }
+
+    "render NamuMark Original Document file" in {
+      val namuHelpTxt = Source.fromFile("src/test/namu_help.txt").mkString
+      renderAll("namu_help", namuHelpTxt).isInstanceOf[String] === true
+    }
+  }
+
+  private def renderAll(title: String, markText: String): String = {
+    val parser = new WikiParser(markText)
+    val ast = parse(parser, parser.NamuMarkRule.run())
+    val renderer = new HTMLRenderer
+    val result = new ASTPostProcessor(title).postProcessAST(ast.asInstanceOf[NM])
+    renderer.mainBody(result)
   }
 
   private def parseAll(markText: String): Any = {

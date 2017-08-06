@@ -1,7 +1,8 @@
 package net.kinetc.biryo
 
+import net.kinetc.biryo.HTMLRenderer._
+
 import scala.collection.Seq
-import HTMLRenderer._
 
 object NamuAST {
   type NamuMap = PartialFunction[NamuMark, NamuMark]
@@ -35,6 +36,11 @@ object NamuAST {
       * @return default: this, or f.apply(this)
       */
     def nfsMap(f: NamuMap): NamuMark = cfsMap(f)
+
+    /**
+      * Map f To Child (NFS Helper Function)
+      */
+    def map(f: NamuMap): NamuMark = this
   }
 
   /**
@@ -53,18 +59,17 @@ object NamuAST {
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
     override def nfsMap(f: NamuMap): NamuMark = {
-      if (f.isDefinedAt(this)) {
-        val newThis = f(this)
-        newThis match {
-          case t: HasNamu => t.constructor(t.value.nfsMap(f))
-          case s: HasNamuSeq[_, _] => s.map(f)
-          case _ => newThis
-        }
-      } else {
-        constructor(value.nfsMap(f))
-      }
+      val newThis = if (f.isDefinedAt(this)) f(this) else this
+      newThis.map(f)
     }
+
+    override def map(f: NamuMap): NamuMark =
+      constructor(value.nfsMap(f))
   }
+
+  implicit def trav2Option[K <: NamuMark](x: Traversable[K]): Option[K] = x.headOption
+
+  implicit def trav2Seq[K <: NamuMark](x: Traversable[K]): Seq[K] = x.toSeq
 
   /**
     * A Class that has a derived type or sequence of NamuMark
@@ -72,8 +77,9 @@ object NamuAST {
     * @tparam K Child of NamuMark
     * @tparam T can be Traversable implicitly (e.g. Option, Seq, ...)
     */
-  abstract class HasNamuSeq[+K <: NamuMark, T](valueSeq: T)(implicit e: T => Traversable[K])
-    extends NamuMark {
+  abstract class HasNamuSeq[+K <: NamuMark, T](valueSeq: T)(
+    implicit e: T => Traversable[K], revE: Traversable[K] => T) extends NamuMark {
+
     def constructorSeq(nm: T): HasNamuSeq[K, T]
 
     override def mkString =
@@ -81,23 +87,20 @@ object NamuAST {
     override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
     override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
     override def cfsMap(f: NamuMap) = {
-      val childMap = valueSeq.map(_.cfsMap(f)).asInstanceOf[T]
+      val childMap = valueSeq.map(_.cfsMap(f)).asInstanceOf[Traversable[K]]
       val newThis = constructorSeq(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def nfsMap(f: NamuMap): NamuMark =
-      if (f.isDefinedAt(this)) {
-        val newThis = f(this)
-        newThis match {
-          case t: HasNamu => t.constructor(t.value.nfsMap(f))
-          case s: HasNamuSeq[_, _] => s.map(f)
-          case _ => newThis
-        }
-      } else {
-        map(f)
-      }
-    def map(f: NamuMap): NamuMark =
-      constructorSeq(valueSeq.map(_.nfsMap(f)).asInstanceOf[T])
+
+    override def nfsMap(f: NamuMap): NamuMark = {
+      val newThis = if (f.isDefinedAt(this)) f(this) else this
+      newThis.map(f)
+    }
+
+    override def map(f: NamuMap): HasNamuSeq[K, T] = {
+      val mapped = valueSeq.map(_.nfsMap(f)).asInstanceOf[Traversable[K]]
+      constructorSeq(mapped)
+    }
   }
 
   trait HasHref {
@@ -140,6 +143,25 @@ object NamuAST {
 
   ////// ------ Table ------ //////
 
+  trait HasTableStyle {
+    val styles: Seq[TableStyle]
+
+    def attrStr: String = {
+      val attrs = styles.filter(_.isInstanceOf[TableAttr]).map(_.asInstanceOf[TableAttr])
+      if (attrs.nonEmpty) {
+        attrs.map(_.attr).addString(new StringBuilder, " ").toString
+      } else ""
+    }
+
+    def styleStr: String = {
+      val inlineStyles = styles.filter(_.isInstanceOf[TableCSS]).map(_.asInstanceOf[TableCSS])
+      if (inlineStyles.nonEmpty) {
+        val sb = new StringBuilder("style=\"")
+        inlineStyles.map(_.style).addString(sb, ";").append('\"').toString
+      } else ""
+    }
+  }
+
   case class TableWrapper(value: Table, caption: Option[NamuMark])
     extends HasNamuSeq[NamuMark, Option[NamuMark]](caption) {
     def constructorSeq(nm: Option[NamuMark]) = TableWrapper(value, nm)
@@ -165,44 +187,20 @@ object NamuAST {
       }
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def nfsMap(f: NamuMap): NamuMark = {
-      if (f.isDefinedAt(this)) {
-        val newThis = f(this)
-        newThis match {
-          case t: HasNamu => t.constructor(t.value.nfsMap(f))
-          case s: HasNamuSeq[_, _] => s.map(f)
-          case _ => newThis
-        }
-      } else {
-        map(f)
-      }
-    }
 
-    override def map(f: NamuMap): NamuMark = {
+    override def map(f: NamuMap): HasNamuSeq[NamuMark, Option[NamuMark]] = {
       val captionMap = caption.map(_.nfsMap(f))
       val valueMap = value.nfsMap(f)
       valueMap match {
         case t: Table => TableWrapper(t, captionMap)
-        case _ => valueMap
+        case _ => OptionWrapper(Some(valueMap))
       }
     }
   }
 
-  trait HasTableStyle {
-    val styles: Seq[TableStyle]
-    def attrStr: String = {
-      val attrs = styles.filter(_.isInstanceOf[TableAttr]).map(_.asInstanceOf[TableAttr])
-      if (attrs.nonEmpty) {
-        attrs.map(_.attr).addString(new StringBuilder, " ").toString
-      } else ""
-    }
-    def styleStr: String = {
-      val inlineStyles = styles.filter(_.isInstanceOf[TableCSS]).map(_.asInstanceOf[TableCSS])
-      if (inlineStyles.nonEmpty) {
-        val sb = new StringBuilder("style=\"")
-        inlineStyles.map(_.style).addString(sb, ";").append('\"').toString
-      } else ""
-    }
+  case class OptionWrapper(valueSeq: Option[NamuMark])
+    extends HasNamuSeq[NamuMark, Option[NamuMark]](valueSeq) {
+    override def constructorSeq(nm: Option[NamuMark]) = OptionWrapper(nm)
   }
 
   case class Table(valueSeq: Seq[TR], styles: Seq[TableStyle])
