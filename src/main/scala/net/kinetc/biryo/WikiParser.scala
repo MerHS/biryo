@@ -3,6 +3,7 @@ package net.kinetc.biryo
 import org.parboiled2._
 
 import scala.annotation.switch
+import scala.util.{Failure, Success}
 
 
 class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
@@ -13,6 +14,20 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def NamuMarkRule: Rule1[NM] = rule {
     NamuMark ~ EOI
+  }
+
+  var parserSuccess = false
+
+  def SubParser = rule {
+    (MATCH ~> ((s: String) =>
+      new WikiParser(s).NamuMarkRule.run() match {
+        case Success(result) => parserSuccess = true; result
+        case Failure(e) => parserSuccess = false; NA.BR
+      })) ~ test(parserSuccess)
+  }
+
+  def FetchNMUntilS(s: String): Rule1[NM] = rule {
+    FetchUntilS(s) ~ SubParser
   }
 
   // Rule 0. Main Rule
@@ -176,13 +191,13 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def FetchTableData = rule {
     (TableCSS ~> ((tsl: List[NA.TableStyle], ts: NA.TableStyle) => ts :: tsl)).* ~
       (
-        (" " ~ NamuMarkEndWith(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+        (" " ~ FetchNMUntilS(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
           NA.TD(nm, NA.Align(NA.AlignCenter, forTable = false) :: tsl)) ~ " ") |
-          (" " ~ NamuMarkEndWith("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+          (" " ~ FetchNMUntilS("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
             NA.TD(nm, NA.Align(NA.AlignRightBottom, forTable = false) :: tsl))) |
-          (NamuMarkEndWith(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+          (FetchNMUntilS(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
             NA.TD(nm, tsl)) ~ ' ') |
-          (NamuMarkEndWith("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+          (FetchNMUntilS("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
             NA.TD(nm, tsl)))
         )
   }
@@ -466,14 +481,19 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 1. Basic Characters
 
+  def FetchLineEnd = rule {
+    WL.? ~ (NewLine | &(EOI))
+  }
+
+  // if it doesn't find `s`, it fails
+  def FetchUntilS(s: String): Rule1[String] = rule {
+    capture((!CommandStr(s) ~ ANY).*) ~ !EOI
+  }
+
   def ICCommandStr(s: String) = rule { !('\\' ~ ignoreCase(s)) ~ atomic(ignoreCase(s)) }
   def CommandStr(s: String) = rule { !('\\' ~ s) ~ atomic(s) }
   def FetchChar: Rule1[Char] = rule {
     ('\\' ~ ANY ~ push(lastChar)) | (ANY ~ push(lastChar))
-  }
-
-  def FetchLineEnd = rule {
-    WL.? ~ (NewLine | &(EOI))
   }
 
   def CheckWLLineEnd = rule {

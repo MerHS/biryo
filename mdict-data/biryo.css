@@ -164,12 +164,17 @@ caption {
     display: block;
     max-width: 100%;
     overflow-x: auto;
-    margin: 10px, 0;
+    margin: 10px 0;
 }
 
 .table-top {
     background-color: #f5f5f5;
     border-collapse: collapse;
+}
+
+.table-wrapper td {
+    padding: 5px 10px;
+    border: 1px solid #dddddd;
 }
 
 h1 {
