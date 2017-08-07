@@ -15,7 +15,7 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namu3.json"
+  val namuFile = "../namuwiki.json"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 

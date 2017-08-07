@@ -1,6 +1,7 @@
 package net.kinetc.biryo
 
 import org.parboiled2._
+import shapeless.HNil
 
 import scala.annotation.switch
 import scala.util.{Failure, Success}
@@ -189,27 +190,20 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ((tsl: List[NA.TableStyle], nm: NM) => NA.TD(nm, tsl))
   }
 
-  var fs: String = ""
-
   def FetchTableString = rule {
-    (FetchUntilS("||") ~> ((tsl: List[NA.TableStyle], s: String) =>
+    FetchUntilS("||") ~> ((tsl: List[NA.TableStyle], s: String) =>
       if (s.length == 0) {
-        fs = s
-        tsl
+        tsl :: s :: HNil
       } else if (s.length >= 2 && s(0) == ' ' && s(s.length - 1) == ' ') {
-        fs = s.substring(1, s.length)
-        NA.Align(NA.AlignCenter, forTable = false) :: tsl
+        (NA.Align(NA.AlignCenter, forTable = false) :: tsl) :: s.substring(1, s.length - 1) :: HNil
       } else if (s(0) == ' ') {
-        fs = s.substring(1)
-        NA.Align(NA.AlignRightBottom, forTable = false) :: tsl
+        (NA.Align(NA.AlignRightBottom, forTable = false) :: tsl) :: s.substring(1) :: HNil
       } else if (s(s.length - 1) == ' ') {
-        fs = s.substring(0, s.length - 1)
-        NA.Align(NA.AlignLeftTop, forTable = false) :: tsl
+        (NA.Align(NA.AlignLeftTop, forTable = false) :: tsl) :: s.substring(0, s.length - 1) :: HNil
       } else {
-        fs = s
-        tsl
+        tsl :: s :: HNil
       }
-      )) ~ push(fs)
+      )
   }
 
   def FetchTDColSpan: Rule1[List[NA.TableStyle]] = rule {
@@ -236,7 +230,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         // Parsing Table Style
         ignoreCase("table") ~ WL.? ~
           (
-            (ignoreCase("bordercolor=") ~ UnquoteStr ~> NA.BorderColor) |
+            (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable = true))) |
             (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=true))) |
             (ignoreCase("align=") ~ UnquoteStr ~>
               ((v: String) => {
@@ -266,6 +260,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ) |
       (
         // Parsing Table Cell Style
+        (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable = false))) |
         (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=false))) |
         (ignoreCase("width=") ~ UnquoteStr ~> (v => NA.Width(v, forTable=false))) |
         (ignoreCase("height=") ~ UnquoteStr ~> (v => NA.Height(v, forTable=false)))

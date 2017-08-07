@@ -189,14 +189,14 @@ object NamuAST {
       }
 
     override def postTrav(f: (NamuMark) => Unit) = {
-      caption.foreach(_.postTrav(f));
-      value.postTrav(f);
+      caption.foreach(_.postTrav(f))
+      value.postTrav(f)
       f(this)
     }
 
     override def preTrav(f: (NamuMark) => Unit) = {
-      f(this);
-      caption.foreach(_.preTrav(f));
+      f(this)
+      caption.foreach(_.preTrav(f))
       value.preTrav(f)
     }
 
@@ -277,10 +277,11 @@ object NamuAST {
     def style: String = s"background-color:$value"
   }
 
-  case class RowBgColor(value: String) extends TableCSS  {
+  case class RowBgColor(value: String) extends TableCSS {
     def style: String = s"background-color:$value"
   }
-  case class BorderColor(value: String) extends TableCSS {
+
+  case class BorderColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
     def style: String = s"border:2px solid $value"
   }
 

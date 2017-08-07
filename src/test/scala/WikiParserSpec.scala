@@ -287,7 +287,7 @@ class WikiParserSpec extends Specification {
 
     "parse TableCSS" in {
       var parser = new WikiParser("<table bordercolor=#FFEECC>")
-      parse(parser, parser.TableCSS.run()) === NA.BorderColor("#FFEECC")
+      parse(parser, parser.TableCSS.run()) === NA.BorderColor("#FFEECC", forTable = true)
 
       parser = new WikiParser("<TableBgCOlor=Ruby>")
       parse(parser, parser.TableCSS.run()) === NA.BgColor("Ruby", forTable=true)
