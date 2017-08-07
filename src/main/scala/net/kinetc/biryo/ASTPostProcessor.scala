@@ -1,8 +1,6 @@
 package net.kinetc.biryo
 
-import NamuAST._
-
-// TODO: 저주받은 루드비히 / 아이린(레드벨벳) -> 하얀색
+import net.kinetc.biryo.NamuAST._
 
 /**
   * Created by KINETC on 2017-07-28.
@@ -13,15 +11,16 @@ class ASTPostProcessor(val title: String) {
   private var fnNo = 0
 
   def postProcessAST(mark: NamuMark): NamuMark = {
-    mark.nfs(findIndent)
+    mark.preTrav(findIndent)
 
-    mark.nfsMap(footNoteProcessor).cfsMap(postProcessor)
+    mark.preMap(footNoteProcessor).postMap(postProcessor)
   }
 
   // TODO: Comment 직후 BR 삭제
   // TODO: List, Indent 처리 / 다중 SpanMark 앞뒤공백 제거
   // TODO: DocType 모으기
   // TODO: TableStyle 정렬 (TR Style, TableStyle이 각각 Table, TR에 가게)
+  // TODO: |||||| a || => TD TD TD(a) -> TD(a, 3)
   protected def postProcessor: NamuMap = {
     /// ----- Href Resolver -----
     case DocLink(href: ExternalHref, None) =>
@@ -51,6 +50,33 @@ class ASTPostProcessor(val title: String) {
         case Some(_) => f
         case None => FootNote(v, Some(fnNo.toString))
       }
+    case Table(trList, styles) =>
+      var tableStyle = List[TableStyle]()
+      for (tr <- trList;
+           td <- tr.valueSeq;
+           style <- td.styles) {
+        style match {
+          case f: ForTable => if (f.forTable) tableStyle ::= f
+          case _ => ()
+        }
+      }
+      Table(trList, tableStyle ++ styles)
+    case TR(tdList, styles) =>
+      var trStyle = List[TableStyle]()
+      for (td <- tdList;
+           style <- td.styles) {
+        style match {
+          case f: RowBgColor => trStyle ::= f
+          case _ => ()
+        }
+      }
+      TR(tdList, trStyle ++ styles)
+    case TD(nm, styles) =>
+      TD(nm, styles.filterNot {
+        case f: ForTable => f.forTable
+        case RowBgColor(_) => true
+        case _ => false
+      })
   }
 
   protected def findIndent(mark: NamuMark): Unit = {

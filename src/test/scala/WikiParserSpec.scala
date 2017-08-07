@@ -323,6 +323,28 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.TableCSS.run()) === NA.BgColor("WhiteBalance", forTable=false)
     }
 
+    "parse Basic Table" in {
+      var parser = new WikiParser("||Test||")
+      parse(parser, parser.TD.run()) === NA.TD(RS("Test"), List[NA.TableStyle]())
+
+      parser = new WikiParser("||Test||")
+      println(parse(parser, parser.TDWithCaption.run()))
+
+      parser = new WikiParser("||Test||")
+      parse(parser, parser.TR.run()) ===
+        NA.TR(List(NA.TD(RS("Test"), List[NA.TableStyle]())), List[NA.TableStyle]())
+
+      parser = new WikiParser("||Test||")
+      println(parse(parser, parser.TRWithCaption.run()))
+
+      parser = new WikiParser("||Test||")
+      parse(parser, parser.Table.run()) ===
+        NA.TableWrapper(NA.Table(
+          List(NA.TR(List(NA.TD(RS("Test"), List[NA.TableStyle]())), List[NA.TableStyle]())),
+          List[NA.TableStyle]()),
+          None)
+    }
+
     "parse from file - Indent / Lists" in {
       1 === 1
     }

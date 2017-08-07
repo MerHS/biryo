@@ -14,28 +14,30 @@ object NamuAST {
     def mkString: String = ""
 
     /**
-      * Child-First Traversing
+      * Depth-First Post-Order Traversing
       */
-    def cfs(f: NamuMark => Unit): Unit = f(this)
+    def postTrav(f: NamuMark => Unit): Unit = f(this)
 
     /**
-      * Node-First Traversing
+      * Depth-First Pre-Order Traversing
       */
-    def nfs(f: NamuMark => Unit): Unit = f(this)
+    def preTrav(f: NamuMark => Unit): Unit = f(this)
 
     /**
-      * Child-First Node Mapping
+      * Depth-First Post-Order Node Mapping
+      *
       * @param f: PartialFunction, don't need to apply it to child
       * @return default: this, or f.apply(this)
       */
-    def cfsMap(f: NamuMap): NamuMark = if (f.isDefinedAt(this)) f(this) else this
+    def postMap(f: NamuMap): NamuMark = if (f.isDefinedAt(this)) f(this) else this
 
     /**
-      * Node-First Node Mapping
-      * @param f PartialFunction, You should apply it to child when `this` is Paragraph or DocLink
+      * Depth-First Pre-Order Node Mapping
+      *
+      * @param f PartialFunction, don't need to apply it to child
       * @return default: this, or f.apply(this)
       */
-    def nfsMap(f: NamuMap): NamuMark = cfsMap(f)
+    def preMap(f: NamuMap): NamuMark = postMap(f)
 
     /**
       * Map f To Child (NFS Helper Function)
@@ -50,21 +52,27 @@ object NamuAST {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
 
-    override def cfs(f: (NamuMark) => Unit) = { value.cfs(f); f(this) }
-    override def nfs(f: (NamuMark) => Unit) = { f(this); value.nfs(f) }
+    override def postTrav(f: (NamuMark) => Unit) = {
+      value.postTrav(f); f(this)
+    }
 
-    override def cfsMap(f: NamuMap): NamuMark = {
-      val childMap = value.cfsMap(f)
+    override def preTrav(f: (NamuMark) => Unit) = {
+      f(this); value.preTrav(f)
+    }
+
+    override def postMap(f: NamuMap): NamuMark = {
+      val childMap = value.postMap(f)
       val newThis = constructor(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
-    override def nfsMap(f: NamuMap): NamuMark = {
+
+    override def preMap(f: NamuMap): NamuMark = {
       val newThis = if (f.isDefinedAt(this)) f(this) else this
       newThis.map(f)
     }
 
     override def map(f: NamuMap): NamuMark =
-      constructor(value.nfsMap(f))
+      constructor(value.preMap(f))
   }
 
   implicit def trav2Option[K <: NamuMark](x: Traversable[K]): Option[K] = x.headOption
@@ -84,21 +92,28 @@ object NamuAST {
 
     override def mkString =
       valueSeq.map(_.mkString).addString(new StringBuilder).toString
-    override def cfs(f: (NamuMark) => Unit) = { valueSeq.foreach(_.cfs(f)); f(this) }
-    override def nfs(f: (NamuMark) => Unit) = { f(this); valueSeq.foreach(_.nfs(f)) }
-    override def cfsMap(f: NamuMap) = {
-      val childMap = valueSeq.map(_.cfsMap(f)).asInstanceOf[Traversable[K]]
+
+    override def postTrav(f: (NamuMark) => Unit) = {
+      valueSeq.foreach(_.postTrav(f)); f(this)
+    }
+
+    override def preTrav(f: (NamuMark) => Unit) = {
+      f(this); valueSeq.foreach(_.preTrav(f))
+    }
+
+    override def postMap(f: NamuMap) = {
+      val childMap = valueSeq.map(_.postMap(f)).asInstanceOf[Traversable[K]]
       val newThis = constructorSeq(childMap)
       if (f.isDefinedAt(newThis)) f(newThis) else newThis
     }
 
-    override def nfsMap(f: NamuMap): NamuMark = {
+    override def preMap(f: NamuMap): NamuMark = {
       val newThis = if (f.isDefinedAt(this)) f(this) else this
       newThis.map(f)
     }
 
     override def map(f: NamuMap): HasNamuSeq[K, T] = {
-      val mapped = valueSeq.map(_.nfsMap(f)).asInstanceOf[Traversable[K]]
+      val mapped = valueSeq.map(_.preMap(f)).asInstanceOf[Traversable[K]]
       constructorSeq(mapped)
     }
   }
@@ -172,15 +187,22 @@ object NamuAST {
       } else {
         s"<div ${c(tableDivClass)}>${value.mkString}</div>"
       }
-    override def cfs(f: (NamuMark) => Unit) = {
-      caption.foreach(_.cfs(f)); value.cfs(f); f(this)
+
+    override def postTrav(f: (NamuMark) => Unit) = {
+      caption.foreach(_.postTrav(f));
+      value.postTrav(f);
+      f(this)
     }
-    override def nfs(f: (NamuMark) => Unit) = {
-      f(this); caption.foreach(_.nfs(f)); value.nfs(f)
+
+    override def preTrav(f: (NamuMark) => Unit) = {
+      f(this);
+      caption.foreach(_.preTrav(f));
+      value.preTrav(f)
     }
-    override def cfsMap(f: NamuMap) = {
-      val captionMap = caption.map(_.cfsMap(f))
-      val valueMap = value.cfsMap(f)
+
+    override def postMap(f: NamuMap) = {
+      val captionMap = caption.map(_.postMap(f))
+      val valueMap = value.postMap(f)
       val newThis = valueMap match {
         case t: Table => TableWrapper(t, captionMap)
         case _ => valueMap
@@ -189,8 +211,8 @@ object NamuAST {
     }
 
     override def map(f: NamuMap): HasNamuSeq[NamuMark, Option[NamuMark]] = {
-      val captionMap = caption.map(_.nfsMap(f))
-      val valueMap = value.nfsMap(f)
+      val captionMap = caption.map(_.preMap(f))
+      val valueMap = value.preMap(f)
       valueMap match {
         case t: Table => TableWrapper(t, captionMap)
         case _ => OptionWrapper(Some(valueMap))
@@ -246,22 +268,31 @@ object NamuAST {
   sealed trait TableCSS extends TableStyle {
     def style: String
   }
-  case class BgColor(value: String, forTable: Boolean) extends TableCSS {
+
+  sealed trait ForTable extends TableStyle {
+    def forTable: Boolean
+  }
+
+  case class BgColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
     def style: String = s"background-color:$value"
   }
-  case class RowBgColor(value: String) extends TableCSS {
+
+  case class RowBgColor(value: String) extends TableCSS  {
     def style: String = s"background-color:$value"
   }
   case class BorderColor(value: String) extends TableCSS {
     def style: String = s"border:2px solid $value"
   }
-  case class Width(value: String, forTable: Boolean) extends TableCSS {
+
+  case class Width(value: String, forTable: Boolean) extends TableCSS with ForTable {
     def style: String = s"width:$value"
   }
-  case class Height(value: String, forTable: Boolean) extends TableCSS {
+
+  case class Height(value: String, forTable: Boolean) extends TableCSS with ForTable {
     def style: String = s"height:$value"
   }
-  case class Align(align: TableAlign, forTable: Boolean) extends TableCSS {
+
+  case class Align(align: TableAlign, forTable: Boolean) extends TableCSS with ForTable {
     def style: String =
       if (forTable) {
         align match {

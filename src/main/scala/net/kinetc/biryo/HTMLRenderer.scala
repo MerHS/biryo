@@ -32,7 +32,7 @@ class HTMLRenderer {
 
   // TODO : [각주] macro
   def generateHTML(title: String, mark: NamuMark): String = {
-    mark.nfs(lister)
+    mark.preTrav(lister)
 
     val mainParagraph = mainBody(mark)
 
@@ -46,14 +46,14 @@ class HTMLRenderer {
     mainParagraph +
     s"<div ${c(footnoteListClass)}>" +
     footnotes.reverse.map(
-      f => ReverseFootNote(f.value, f.noteStr).cfsMap(renderMapper)
+      f => ReverseFootNote(f.value, f.noteStr).postMap(renderMapper)
           .mkString.replace("\n", "<br>")
     ).mkString +
     "</div></body>"
   }
 
   def mainBody(mark: NamuMark) =
-    mark.cfsMap(renderMapper).mkString.replace("\n", "<br>")
+    mark.postMap(renderMapper).mkString.replace("\n", "<br>")
 
   def lister(mark: NamuMark): Unit = {
     mark match {

@@ -65,7 +65,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '\n' | '\r' | '\uFFFF' => MISMATCH // \uFFFF <- Literal EOI
         case ' ' => LineTerm // Indent / List Multiline
         case '=' => Headings | LineTerm
-        case '|' => LineTerm // Table Multiline
+        case '|' => Table | LineTerm // Table Multiline
         case '#' => Redirect | Comment | LineTerm
         case '-' => HR | LineTerm
         case '>' => BlockQuote | LineTerm
@@ -80,7 +80,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '\n' | '\r' | '\uFFFF' => MISMATCH
         case ' ' => LineTermEndWith(s)
         case '=' => Headings | LineTermEndWith(s)
-        case '|' => LineTermEndWith(s)
+        case '|' => Table | LineTermEndWith(s)
         case '#' => Redirect | Comment | LineTermEndWith(s)
         case '-' => HR | LineTermEndWith(s)
         case '>' => BlockQuote | LineTermEndWith(s)
@@ -132,23 +132,75 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 8. Table (Multi-Liner)
 
-//  def Table: Rule1[NA.Table] = {
-//    TableHeader ~
-//      (TableRow ~> ((table: NA.Table, tr: NA.TR) =>
-//        NA.Table(table.valueSeq :+ tr, table.styles))).*
-//  }
-//
-//  def TableHeader: Rule1[NA.Table] = {
-//
-//  }
-//
-//  def TableRow: Rule1[NA.TR] = {
-//
-//  }
-//  // TODO: space 글 space -> NA.Align(NA.AlignCenter, forTable=false)
-//  def TableData: Rule1[NA.TD] = {
-//
-//  }
+  def Table: Rule1[NM] = rule {
+    TableHeader ~
+      (
+        TR ~> ((tw: NA.TableWrapper, tr: NA.TR) =>
+          NA.TableWrapper(NA.Table(tw.value.valueSeq :+ tr, tw.value.styles), tw.caption))
+        ).*
+  }
+
+  def TableHeader: Rule1[NA.TableWrapper] = rule {
+    TRWithCaption ~> ((nm: NM, tr: NA.TR) =>
+      if (nm == NA.RawString(""))
+        NA.TableWrapper(NA.Table(Vector[NA.TR](tr), List[NA.TableStyle]()), None)
+      else
+        NA.TableWrapper(NA.Table(Vector[NA.TR](tr), List[NA.TableStyle]()), Some(nm))
+      )
+  }
+
+  def TRWithCaption: Rule2[NM, NA.TR] = rule {
+    (TDWithCaption ~> ((td: NA.TD) => List[NA.TD](td))) ~
+      (!("||" ~ CheckWLLineEnd) ~ TD ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
+      "||" ~ FetchLineEnd ~>
+      ((tdl: List[NA.TD]) => NA.TR(tdl.reverse, List[NA.TableStyle]()))
+  }
+
+  def TR: Rule1[NA.TR] = rule {
+    push(List[NA.TD]()) ~
+      (TD ~ !("||" ~ CheckWLLineEnd) ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
+      TD ~ "||" ~ FetchLineEnd ~>
+      ((tdl: List[NA.TD], td: NA.TD) => NA.TR((td :: tdl).reverse, List[NA.TableStyle]()))
+  }
+
+  // TODO: "||||||" ~ (역방향으로 Fetch)
+  // push(NA.ColSpan(0)) ~ ("||" ~> ((cs: NA.ColSpan) => NA.ColSpan(cs.value + 1)).+
+  def TD: Rule1[NA.TD] = rule {
+    FetchTDColSpan ~ FetchTableData
+  }
+
+  def TDWithCaption: Rule2[NM, NA.TD] = rule {
+    FetchTDWithCaption ~ FetchTableData
+  }
+
+  def FetchTableData = rule {
+    (TableCSS ~> ((tsl: List[NA.TableStyle], ts: NA.TableStyle) => ts :: tsl)).* ~
+      (
+        (" " ~ NamuMarkEndWith(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+          NA.TD(nm, NA.Align(NA.AlignCenter, forTable = false) :: tsl)) ~ " ") |
+          (" " ~ NamuMarkEndWith("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+            NA.TD(nm, NA.Align(NA.AlignRightBottom, forTable = false) :: tsl))) |
+          (NamuMarkEndWith(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+            NA.TD(nm, tsl)) ~ ' ') |
+          (NamuMarkEndWith("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
+            NA.TD(nm, tsl)))
+        )
+  }
+
+  def FetchTDColSpan: Rule1[List[NA.TableStyle]] = rule {
+    push(List[NA.TableStyle]()) ~ push(NA.ColSpan(0)) ~
+      ("||" ~ run((cs: NA.ColSpan) => NA.ColSpan(cs.value + 1))).+ ~>
+      ((tsl: List[NA.TableStyle], cs: NA.ColSpan) =>
+        if (cs.value <= 1) tsl else cs :: tsl)
+  }
+
+  def FetchTDWithCaption: Rule2[NM, List[NA.TableStyle]] = rule {
+    ('|' ~ LineTermEndWith("|") ~ '|') ~ push(List[NA.TableStyle]()) ~ push(NA.ColSpan(1)) ~
+      ("||" ~ run((cs: NA.ColSpan) => NA.ColSpan(cs.value + 1))).* ~>
+      ((tsl: List[NA.TableStyle], cs: NA.ColSpan) =>
+        if (cs.value <= 1) tsl else cs :: tsl)
+  }
+
 
   def TableCSS: Rule1[NA.TableStyle] = rule {
     !"\\<" ~ '<' ~ (
@@ -420,6 +472,13 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     ('\\' ~ ANY ~ push(lastChar)) | (ANY ~ push(lastChar))
   }
 
+  def FetchLineEnd = rule {
+    WL.? ~ (NewLine | &(EOI))
+  }
+
+  def CheckWLLineEnd = rule {
+    &(WL.? ~ (NewLine | EOI))
+  }
   def CheckLineEnd = rule { &(NewLine | EOI) }
   def CheckC(c: Char) = rule { &(!('\\' ~ c) ~ c) }
   def CheckS(s: String) = rule { &(!('\\' ~ s) ~ s) }
