@@ -26,10 +26,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       })) ~ test(parserSuccess)
   }
 
-  def FetchNMUntilS(s: String): Rule1[NM] = rule {
-    FetchUntilS(s) ~ SubParser
-  }
-
   // Rule 0. Main Rule
 
   // 강제개행은 제거된다
@@ -189,17 +185,31 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def FetchTableData = rule {
-    (TableCSS ~> ((tsl: List[NA.TableStyle], ts: NA.TableStyle) => ts :: tsl)).* ~
-      (
-        (" " ~ FetchNMUntilS(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
-          NA.TD(nm, NA.Align(NA.AlignCenter, forTable = false) :: tsl)) ~ " ") |
-          (" " ~ FetchNMUntilS("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
-            NA.TD(nm, NA.Align(NA.AlignRightBottom, forTable = false) :: tsl))) |
-          (FetchNMUntilS(" ||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
-            NA.TD(nm, tsl)) ~ ' ') |
-          (FetchNMUntilS("||") ~> ((tsl: List[NA.TableStyle], nm: NM) =>
-            NA.TD(nm, tsl)))
-        )
+    FetchTableCSSList ~ FetchTableString ~ SubParser ~>
+      ((tsl: List[NA.TableStyle], nm: NM) => NA.TD(nm, tsl))
+  }
+
+  var fs: String = ""
+
+  def FetchTableString = rule {
+    (FetchUntilS("||") ~> ((tsl: List[NA.TableStyle], s: String) =>
+      if (s.length == 0) {
+        fs = s
+        tsl
+      } else if (s.length >= 2 && s(0) == ' ' && s(s.length - 1) == ' ') {
+        fs = s.substring(1, s.length)
+        NA.Align(NA.AlignCenter, forTable = false) :: tsl
+      } else if (s(0) == ' ') {
+        fs = s.substring(1)
+        NA.Align(NA.AlignRightBottom, forTable = false) :: tsl
+      } else if (s(s.length - 1) == ' ') {
+        fs = s.substring(0, s.length - 1)
+        NA.Align(NA.AlignLeftTop, forTable = false) :: tsl
+      } else {
+        fs = s
+        tsl
+      }
+      )) ~ push(fs)
   }
 
   def FetchTDColSpan: Rule1[List[NA.TableStyle]] = rule {
@@ -216,6 +226,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         if (cs.value <= 1) tsl else cs :: tsl)
   }
 
+  def FetchTableCSSList = rule {
+    (TableCSS ~> ((tsl: List[NA.TableStyle], ts: NA.TableStyle) => ts :: tsl)).*
+  }
 
   def TableCSS: Rule1[NA.TableStyle] = rule {
     !"\\<" ~ '<' ~ (
