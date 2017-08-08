@@ -70,7 +70,13 @@ class HTMLRenderer {
       case HTMLString(s) => HTMLString(deleteExternalTag(s))
       case TableOfContents => HTMLString(headingsRenderer(headings.reverse))
       case DocLink(href: ExternalHref, alias) => HTMLString(externalLinkRenderer(href, alias))
-    }
+      case Include("틀:루비", args) => {
+        val value = escapeHTML(args.getOrElse("글자", ""))
+        val ruby = escapeHTML(args.getOrElse("루비", ""))
+        HTMLString(s"<ruby><rb>$value</rb><rp>(</rp><rt>$ruby</rt><rp>)</rp></ruby>")
+      }
+
+  }
 
   // can override this
   protected def headingsRenderer(headList: List[Headings]): String = {
@@ -83,6 +89,10 @@ class HTMLRenderer {
   }
 
   protected def headingItemRenderer(head: Headings): String = {
+    // Remove Footnotes from the table of contents (e.g. 나비에-스토크스 방정식)
+    head postMap {
+      case NamuAST.FootNote(_, _) => NamuAST.RawString("")
+    }
     val (value, no) = (head.value, head.no)
     val hno = no.mkString(".")
     val itemStr = s"<div ${c(ctItemClass)}><a href=${q}entry://#s-$hno$q>$hno.</a> ${value.mkString}</div>"

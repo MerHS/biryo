@@ -75,7 +75,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     run {
       (cursorChar: @switch) match {
         case '\n' | '\r' | '\uFFFF' => MISMATCH // \uFFFF <- Literal EOI
-        case ' ' => LineTerm // Indent / List Multiline
+        case ' ' => Indent | LineTerm // Indent / List Multiline
         case '=' => Headings | LineTerm
         case '|' => Table | LineTerm // Table Multiline
         case '#' => Redirect | Comment | LineTerm
@@ -90,12 +90,12 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     run {
       (cursorChar: @switch) match {
         case '\n' | '\r' | '\uFFFF' => MISMATCH
-        case ' ' => LineTermEndWith(s)
+        case ' ' => IndentEW(s) | LineTermEndWith(s)
         case '=' => Headings | LineTermEndWith(s)
         case '|' => Table | LineTermEndWith(s)
         case '#' => Redirect | Comment | LineTermEndWith(s)
         case '-' => HR | LineTermEndWith(s)
-        case '>' => BlockQuote | LineTermEndWith(s)
+        case '>' => BlockQuoteEW(s) | LineTermEndWith(s)
         case '[' => LineStartMacro | LineTermEndWith(s)
         case _ => LineTermEndWith(s)
       }
@@ -141,6 +141,45 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     }
   }
   // Rule 9. Indent & Lists (Multi-Liner)
+
+  // TODO: Check it Before get indent
+  def ListObj: Rule1[NM] = ???
+
+  def IndentEW(s: String): Rule1[NM] = rule {
+    CheckIndent ~ test(spaceNo > 0) ~ IndentLineEW(s).+ ~>
+      ((size: Int, sl: Seq[String]) => {
+        NA.Indent(new WikiParser(sl.mkString).NamuMarkRule.run().get, size)
+      })
+  }
+
+  private def IndentLineEW(st: String): Rule1[String] = rule {
+    spaceNo.times(ch(' ')) ~ LineStringExceptS(st) ~
+      ((&(ch(EOI) | st) ~> ((s: String) => s)) |
+        (NewLine ~> ((s: String) => s + '\n')))
+  }
+
+  def Indent: Rule1[NM] = rule {
+    CheckIndent ~ test(spaceNo > 0) ~ IndentLine.+ ~>
+      ((size: Int, sl: Seq[String]) => {
+        NA.Indent(new WikiParser(sl.mkString).NamuMarkRule.run().get, size)
+      })
+  }
+
+  // I Hate Type System....
+  private def IndentLine: Rule1[String] = rule {
+    spaceNo.times(ch(' ')) ~ LineString ~
+      ((&(EOI) ~> ((s: String) => s)) |
+        (NewLine ~> ((s: String) => s + '\n')))
+  }
+
+  var spaceNo: Int = 0
+
+  private def CheckIndent: Rule1[Int] = rule {
+    &(capture(ch(' ').+) ~> ((s: String) => {
+      spaceNo = s.length;
+    })) ~
+      push(spaceNo)
+  }
 
   // Rule 8. Table (Multi-Liner)
 
@@ -284,11 +323,23 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         NA.BlockQuote(new WikiParser(sl.mkString).NamuMarkRule.run().get))
   }
 
+  def BlockQuoteEW(s: String): Rule1[NM] = rule {
+    BlockQuoteLineEW(s).+ ~>
+      ((sl: Seq[String]) =>
+        NA.BlockQuote(new WikiParser(sl.mkString).NamuMarkRule.run().get))
+  }
+
   // I Hate Type System....
   private def BlockQuoteLine: Rule1[String] = rule {
     '>' ~ LineString ~
       ((&(EOI) ~> ((s: String) => s)) |
       (NewLine ~> ((s: String) => s + '\n')))
+  }
+
+  private def BlockQuoteLineEW(st: String): Rule1[String] = rule {
+    '>' ~ LineStringExceptS(st) ~
+      ((&(ch(EOI) | st) ~> ((s: String) => s)) |
+        (NewLine ~> ((s: String) => s + '\n')))
   }
 
   // Rule 6. FootNote (Single Bracket)
@@ -432,11 +483,22 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def WordBox = rule { MatchBlock("{{|", "|}}") ~> NA.WordBox }
 
+  var isMultiLine = false
   def RawBlock: Rule1[NM] = rule {
-    ((CommandStr("{{{") ~ WL.? ~ NewLine) | CommandStr("{{{")) ~
+    ((CommandStr("{{{") ~ WL.? ~ NewLine ~ run {
+      isMultiLine = true
+    }) |
+      (CommandStr("{{{") ~ run {
+        isMultiLine = false
+      })) ~
       push(new SB) ~ RBResolver.* ~
-        (("\n}}}" ~ push(true)) | ("}}}" ~ push(false))) ~>
-        ((tsb: SB, isMultiLine: Boolean) => NA.InlineString(tsb.toString, isMultiLine))
+      (("\n}}}" ~ run {
+        isMultiLine = isMultiLine || true
+      }) |
+        ("}}}" ~ run {
+          isMultiLine = isMultiLine || false
+        })) ~>
+      ((tsb: SB) => NA.InlineString(tsb.toString, isMultiLine))
   }
 
   /// 단일 역슬래시도 그대로 출력해야함
@@ -459,7 +521,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   // Rule 2. Basic Blocks / One-liners
 
   def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LineString ~> NA.Redirect }
-  def Comment = rule { "##" ~ LineString ~> NA.Comment }
+
+  def Comment = rule {
+    "##" ~ LineString ~ FetchLineEnd ~> NA.Comment
+  }
   def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
 
   def Headings = rule { H6 | H5 | H4 | H3 | H2 | H1 }

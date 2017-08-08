@@ -11,16 +11,13 @@ class ASTPostProcessor(val title: String) {
   private var fnNo = 0
 
   def postProcessAST(mark: NamuMark): NamuMark = {
-    mark.preTrav(findIndent)
+    mark.preTrav(findHeadings)
 
-    mark.preMap(footNoteProcessor).postMap(postProcessor)
+    mark.preMap(footNoteTableProcessor).postMap(postProcessor)
   }
 
-  // TODO: Comment 직후 BR 삭제
-  // TODO: List, Indent 처리 / 다중 SpanMark 앞뒤공백 제거
+  // TODO: List / 다중 SpanMark 앞뒤공백 제거
   // TODO: DocType 모으기
-  // TODO: TableStyle 정렬 (TR Style, TableStyle이 각각 Table, TR에 가게)
-  // TODO: |||||| a || => TD TD TD(a) -> TD(a, 3)
   protected def postProcessor: NamuMap = {
     /// ----- Href Resolver -----
     case DocLink(href: ExternalHref, None) =>
@@ -43,7 +40,7 @@ class ASTPostProcessor(val title: String) {
       HTMLString(s + "</span>")
   }
 
-  protected def footNoteProcessor: NamuMap = {
+  protected def footNoteTableProcessor: NamuMap = {
     case f @ FootNote(v, noteStr) =>
       fnNo += 1
       noteStr match {
@@ -79,7 +76,7 @@ class ASTPostProcessor(val title: String) {
       })
   }
 
-  protected def findIndent(mark: NamuMark): Unit = {
+  protected def findHeadings(mark: NamuMark): Unit = {
     mark match {
       case RawHeadings(_, s) => if (s < hMin) hMin = s
       case _ => ()

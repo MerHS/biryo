@@ -156,6 +156,14 @@ object NamuAST {
   // A.#42 -> <ol type="A" start="42"> ~~ </ol>
   case class Type_A(offset: Int = 1) extends ListType
 
+  ////// ----- Indent ------ //////
+
+  case class Indent(value: NamuMark, size: Int) extends HasNamu {
+    override def mkString = s"<div ${c(indentClass)}>${value.mkString}</div>"
+
+    override def constructor(nm: NamuMark) = Indent(nm, size)
+  }
+
   ////// ------ Table ------ //////
 
   trait HasTableStyle {

@@ -59,8 +59,8 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.Comment.run()) === NA.Comment("Comment ##Check")
       parseAll("test ##0000\n##comment\n ##COMM\n#end") === paraMaker(
         RS("test ##0000"), NA.BR,
-        NA.Comment("comment"), NA.BR,
-        RS(" ##COMM"), NA.BR,
+        NA.Comment("comment"),
+        NA.Indent(NA.Comment("COMM"), 1),
         RS("#end")
       )
 
@@ -166,13 +166,13 @@ class WikiParserSpec extends Specification {
       val demoSyntax =
         """{{{#!syntax scala
           |  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
-          |  def Comment = rule { "##" ~ LineString ~> NA.Comment }
+          |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
           |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
           |}}}""".stripMargin
       val demoSyntaxParsed = NA.SyntaxBlock(
         "scala",
         """  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
-          |  def Comment = rule { "##" ~ LineString ~> NA.Comment }
+          |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
           |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }""".stripMargin
       )
       parser = new WikiParser(demoSyntax)

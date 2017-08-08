@@ -26,6 +26,10 @@ table {
     border-color: grey;
 }
 
+tr {
+    box-sizing: inherit;
+}
+
 tbody {
     display: table-row-group;
     vertical-align: middle;
@@ -74,7 +78,7 @@ pre code {
 blockquote {
     border: 2px dashed #ccc;
     border-left: 5px solid #7CBC6D;
-    padding: 14px 53px 14px 14px;
+    padding: 15px 53px 15px 12px;
     margin: 14px 0;
     background: #eee;
     display: table;
