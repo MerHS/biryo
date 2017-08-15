@@ -94,7 +94,9 @@ class ASTPostProcessor(val title: String) {
         val newHref =
           if (title.contains('/')) title.split("/").init.mkString("/") else title
           NormalHref(s"entry://$newHref")
-      case ChildDocHref(h) => NormalHref(s"entry://$title/${hrefProcessor(h).value}")
+      case ChildDocHref(h) =>
+        val childVal = hrefProcessor(h).value.replaceAll("entry://", "")
+        NormalHref(s"entry://$title/$childVal")
       case _ => href
     }
   }

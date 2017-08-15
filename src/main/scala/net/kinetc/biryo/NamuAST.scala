@@ -347,6 +347,10 @@ object NamuAST {
     def constructor(nm: NamuMark) = FootNote(nm, noteStr)
   }
 
+  case class LinkOnlyFN(noteStr: String) extends NamuMark {
+    override def mkString = s"<a href=${toQ(s"entry://#$noteStr")}>[$noteStr]</a>"
+  }
+
   // TODO: Calculate This!
   case class AgeMacro(date: String) extends NamuMark {
     override def mkString = s"(${date}로부터 나이)"
@@ -355,7 +359,7 @@ object NamuAST {
     // do not calculate it for MDict
     override def mkString = "[현재 시간]"
   }
-  // TODO: Render This From HTMLRenderer
+
   case object FootNoteList extends NamuMark {
     override def mkString = "[각주]"
   }
@@ -363,7 +367,7 @@ object NamuAST {
   case object TableOfContents extends NamuMark {
     override def mkString = "[목차]"
   }
-  // TODO: Should we render this??
+
   case class Include(rawHref: String, args: Map[String, String]) extends NamuMark {
     override def mkString = {
       val argString = args.mkString(", ").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")

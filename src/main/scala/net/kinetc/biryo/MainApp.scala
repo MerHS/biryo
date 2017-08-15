@@ -1,5 +1,7 @@
 package net.kinetc.biryo
 
+import java.io.File
+
 import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
 
@@ -16,6 +18,7 @@ object MainApp extends App {
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
   val namuFile = "../namuwiki.json"
+  val frameSourceFolder = "./mdict-data/frame"
 
   val useInlineCSS = false
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
@@ -26,42 +29,41 @@ object MainApp extends App {
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
   HTMLRenderer.useInlineCSS = useInlineCSS
 
+  val fsfFile = new File(frameSourceFolder)
+  if (!fsfFile.exists)
+    fsfFile.mkdir()
+
   val namuSource = Source.fromFile(namuFile)
   val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
 
   val actorSystem = ActorSystem("namuParser")
   val printer = actorSystem.actorOf(PrinterActor.props(exportFile), "printerActor")
+  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolder), "framePrinterActor")
   val mdictMakers = Array(
-    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker1"),
-    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker2"),
-    actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker3")
+    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker1"),
+    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),
+    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker3")
   )
   var rrIndex = 0
   var docCount = 0
 
   def makeMDict(js: ast.JValue): Unit = {
+    var isFrame = false
     val prefix = js.get("namespace").getString match {
       case Some("0") => ""
-      case Some("1") => "틀:"
+      case Some("1") => isFrame = true; ""
       case Some("2") => "분류:"
       case Some("6") => "나무위키:"
       case _ => return
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
-        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
+        if (isFrame)
+          mdictMakers(rrIndex) ! FrameDoc(title, text)
+        else
+          mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
         rrIndex = (rrIndex + 1) % 3
         docCount += 1
-      //        val parser = new WikiParser(text)
-      //        val renderer = new HTMLRenderer
-      //          parser.NamuMarkRule.run() match {
-      //          case Success(result) =>
-      //            val postResult = new ASTPostProcessor(title).postProcessAST(result)
-      //            val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
-      //            println(compiledText)
-      //          case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
-      //          case Failure(e)             => e.printStackTrace()
-      //        }
       case _ => ()
     }
   }

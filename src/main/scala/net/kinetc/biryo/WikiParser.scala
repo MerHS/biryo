@@ -135,7 +135,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case ',' => Sub
         case '_' => Underline
         case '\'' => Bold | Italic
-        case '[' => OtherMacro | FootNote | Link
+        case '[' => OtherMacro | FootNote | LinkOnlyFN | Link | FootNoteList
         case _ => MISMATCH
       }
     }
@@ -344,7 +344,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 6. FootNote (Single Bracket)
 
-  // TODO: [*B] 처리 못함
   def FootNote: Rule1[NM] = rule {
     CommandStr("[*") ~ LineStringExceptC(' ') ~ ' ' ~
       LineTermEndWith("]") ~ CommandStr("]") ~>
@@ -356,6 +355,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       })
   }
 
+  def LinkOnlyFN: Rule1[NM] = rule {
+    CommandStr("[*") ~ LineStringExceptC(']') ~ ']' ~> NA.LinkOnlyFN
+  }
+
   // Rule 5. Macros (Single Bracket)
   // 매크로는 대소문 구분 X
 
@@ -363,10 +366,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def OtherMacro: Rule1[NM] = rule { BR | Include | DateMacro | Anchor | YoutubeLink }
 
   def FootNoteList = rule {
-    (CommandStr("[각주]") | ICCommandStr("[footnote]")) ~ WL ~ CheckLineEnd ~ push(NA.FootNoteList)
+    (CommandStr("[각주]") | ICCommandStr("[footnote]")) ~ WL.? ~ push(NA.FootNoteList)
   }
   def TableOfContents = rule {
-    (CommandStr("[목차]") | ICCommandStr("[tableofcontents]")) ~ WL ~ CheckLineEnd ~ push(NA.TableOfContents)
+    (CommandStr("[목차]") | ICCommandStr("[tableofcontents]")) ~ WL.? ~ CheckLineEnd ~ push(NA.TableOfContents)
   }
 
   def Include = rule {
@@ -525,7 +528,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def Comment = rule {
     "##" ~ LineString ~ FetchLineEnd ~> NA.Comment
   }
-  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
+
+  def HR = rule {
+    (4 to 10).times(ch('-')) ~ FetchLineEnd ~ push(NA.HR)
+  }
 
   def Headings = rule { H6 | H5 | H4 | H3 | H2 | H1 }
 
@@ -608,10 +614,20 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     argMap
   }
 
-  // Seq("a=3", "b=5", "c=6") => Map("a" -> "3", "b" -> "5", "c" -> 6)
+  // Seq("a=3", "X", "b=5", "c=6") => Map("a" -> "3,X", "b" -> "5", "c" -> 6)
   private def argParse(args: Seq[String]): Map[String, String] = {
     var argMap = Map[String, String]()
+    var newArgs = List[String]()
+
     for (arg <- args) {
+      if (arg.contains("=") || newArgs.isEmpty) {
+        newArgs = arg :: newArgs
+      } else {
+        newArgs = (newArgs.head + "," + arg) :: newArgs.tail
+      }
+    }
+
+    for (arg <- newArgs) {
       val argSplit = arg.split("=", 2)
       argMap += argSplit(0).trim -> (if (argSplit.length >= 2) argSplit(1).trim else "")
     }
