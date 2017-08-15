@@ -176,7 +176,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   private def CheckIndent: Rule1[Int] = rule {
     &(capture(ch(' ').+) ~> ((s: String) => {
-      spaceNo = s.length;
+      spaceNo = s.length
     })) ~
       push(spaceNo)
   }
@@ -370,8 +370,11 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def Include = rule {
-    ICCommandStr("[include(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
-      ((args: Seq[String]) => NA.Include(args.head, argParse(args.tail)))
+    ICCommandStr("[include(") ~ LineStringExceptS(")]") ~ CommandStr(")]") ~>
+      ((argString: String) => {
+        val args = argString.split(',')
+        NA.Include(args.head.trim, argParse(args.tail))
+      })
   }
   def BR = rule { ICCommandStr("[br]") ~ push(NA.BR) }
   def Age = rule { ICCommandStr("[age(") ~ LineStringExceptC(')') ~ ")]" ~> NA.AgeMacro }
@@ -493,11 +496,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       })) ~
       push(new SB) ~ RBResolver.* ~
       (("\n}}}" ~ run {
-        isMultiLine = isMultiLine || true
-      }) |
-        ("}}}" ~ run {
-          isMultiLine = isMultiLine || false
-        })) ~>
+        isMultiLine = true
+      }) | "}}}") ~>
       ((tsb: SB) => NA.InlineString(tsb.toString, isMultiLine))
   }
 

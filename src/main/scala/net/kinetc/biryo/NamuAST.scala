@@ -305,7 +305,7 @@ object NamuAST {
     def style: String =
       if (forTable) {
         align match {
-          case AlignCenter => "margin:auto"
+          case AlignCenter => "margin:0 auto"
           case AlignRightBottom => "margin-right:0px"
           case AlignLeftTop => "margin-left:0px" // default
         }
@@ -366,12 +366,8 @@ object NamuAST {
   // TODO: Should we render this??
   case class Include(rawHref: String, args: Map[String, String]) extends NamuMark {
     override def mkString = {
-      if (args.isEmpty) {
-        s"[include(<a href=${toQ(s"entry://$rawHref")}>$rawHref</a>)]"
-      } else {
-        val argString = args.mkString(", ").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-        s"[include(<a href=${toQ(s"entry://$rawHref")}>$rawHref</a>), args:$argString)]"
-      }
+      val argString = args.mkString(", ").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+      s"[include(<a href=${toQ(s"entry://$rawHref")}>$rawHref</a>), args:$argString)]"
     }
   }
   case class Anchor(anchor: String) extends NamuMark {

@@ -18,6 +18,9 @@ object HTMLRenderer {
   val tableClass = "table-top"
 
   def c(className: String) = "class=\"" + className + "\""
+
+  var inlineStyle = ""
+  var useInlineCSS = false
 }
 
 /**
@@ -37,19 +40,12 @@ class HTMLRenderer {
     val mainParagraph = mainBody(mark)
 
     // head + title + main paragraph + footnote list
-    """<head>
-      |<link rel="stylesheet" type="text/css" href="biryo.css" />
-      |</head>
-      |<body>""".stripMargin +
+    headRenderer() +
+      "<body>" +
     s"<h1 ${c("title")}>$title</h1>" +
-    (if (headListExists) "" else "<a name=\"headList\"></a>") +
     mainParagraph +
-    s"<div ${c(footnoteListClass)}>" +
-    footnotes.reverse.map(
-      f => ReverseFootNote(f.value, f.noteStr).postMap(renderMapper)
-          .mkString.replace("\n", "<br>")
-    ).mkString +
-    "</div></body>"
+      footnotesRenderer(footnotes) +
+      "</body>"
   }
 
   def mainBody(mark: NamuMark) =
@@ -70,15 +66,41 @@ class HTMLRenderer {
       case HTMLString(s) => HTMLString(deleteExternalTag(s))
       case TableOfContents => HTMLString(headingsRenderer(headings.reverse))
       case DocLink(href: ExternalHref, alias) => HTMLString(externalLinkRenderer(href, alias))
-      case Include("틀:루비", args) => {
-        val value = escapeHTML(args.getOrElse("글자", ""))
-        val ruby = escapeHTML(args.getOrElse("루비", ""))
-        HTMLString(s"<ruby><rb>$value</rb><rp>(</rp><rt>$ruby</rt><rp>)</rp></ruby>")
-      }
-
+      case Include(s, args) if !useInlineCSS && s.startsWith("틀:") =>
+        HTMLString("<div></div>")
+    //      case Include("틀:루비", args) => {
+    //        val value = escapeHTML(args.getOrElse("글자", ""))
+    //        val ruby = escapeHTML(args.getOrElse("루비", ""))
+    //        HTMLString(s"<ruby><rb>$value</rb><rp>(</rp><rt>$ruby</rt><rp>)</rp></ruby>")
+    //      }
   }
 
   // can override this
+  protected def headRenderer(): String = {
+    "<head>" + {
+      if (useInlineCSS)
+        s"<style>\n$inlineStyle\n</style>"
+      else
+        """
+          |<link rel="stylesheet" type="text/css" href="biryo.css" />
+          |<script src="jquery.min.js"></script>
+          |<script src="frame.js"></script>
+          |""".stripMargin
+    } +
+      "</head>"
+  }
+
+  protected def footnotesRenderer(fns: List[FootNote]): String = {
+    if (fns.isEmpty)
+      ""
+    else
+      s"<div ${c(footnoteListClass)}>" +
+        fns.reverse.map(
+          f => ReverseFootNote(f.value, f.noteStr).postMap(renderMapper)
+            .mkString.replace("\n", "<br>")
+        ).mkString + "</div>"
+  }
+
   protected def headingsRenderer(headList: List[Headings]): String = {
     headListExists = true
     s"<a name=${q}headList$q></a><div ${c(ctClass)}>" +
@@ -90,10 +112,11 @@ class HTMLRenderer {
 
   protected def headingItemRenderer(head: Headings): String = {
     // Remove Footnotes from the table of contents (e.g. 나비에-스토크스 방정식)
-    head postMap {
+    val newHead = (head postMap {
       case NamuAST.FootNote(_, _) => NamuAST.RawString("")
-    }
-    val (value, no) = (head.value, head.no)
+    }).asInstanceOf[Headings]
+
+    val (value, no) = (newHead.value, newHead.no)
     val hno = no.mkString(".")
     val itemStr = s"<div ${c(ctItemClass)}><a href=${q}entry://#s-$hno$q>$hno.</a> ${value.mkString}</div>"
     if (no.length > 1) {

@@ -17,13 +17,20 @@ object MainApp extends App {
 
   val namuFile = "../namuwiki.json"
 
+  val useInlineCSS = false
+  val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
+
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
+
+  val cssSource = Source.fromFile("./mdict-data/biryo.css")
+  HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
+  HTMLRenderer.useInlineCSS = useInlineCSS
 
   val namuSource = Source.fromFile(namuFile)
   val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
 
   val actorSystem = ActorSystem("namuParser")
-  val printer = actorSystem.actorOf(PrinterActor.props("namu.txt"), "printerActor")
+  val printer = actorSystem.actorOf(PrinterActor.props(exportFile), "printerActor")
   val mdictMakers = Array(
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker1"),
     actorSystem.actorOf(MDictMaker.props(printer), "mdictMaker2"),
