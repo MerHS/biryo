@@ -33,7 +33,7 @@
 
 * 일반 텍스트 (`RawString`, `Paragraph`)
 * 3\. 문단 (`Headings`)
-* 4. 서식 (`SpanMark`)
+* 4\. 서식 (`SpanMark`)
   * 4.1. 텍스트 형태
     * 굵게 (`Bold`)
     * 기울임 (`Italic`)

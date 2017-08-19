@@ -67,7 +67,7 @@ class WikiParserSpec extends Specification {
       parser = new WikiParser("----------")
       parse(parser, parser.HR.run()) === NA.HR
       parseAll("HR\n----\n----------\n--\n-----------\n------------") === paraMaker(
-        RS("HR"), NA.BR, NA.HR, NA.BR, NA.HR, NA.BR, RS("--"), NA.BR,
+        RS("HR"), NA.BR, NA.HR, NA.HR, RS("--"), NA.BR,
         paraMaker(NA.Strike(RS("")), NA.Strike(RS("")), RS("---")), NA.BR,
         paraMaker(NA.Strike(RS("")), NA.Strike(RS("")),NA.Strike(RS("")))
       )
