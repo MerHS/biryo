@@ -117,8 +117,10 @@ target/scala-2.11 폴더에 `biryo.jar`이 만들어집니다.
 
 ## How to Use
 
-**주의:** 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**
+**주의:** 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**, 
 **MDict 2.0** 버전 사용자는 **MdxBuilder 4.0**버전으로 mdx/mdd파일을 만들어야 정상 작동합니다.
+
+**요주의:** 현재 MdxBuilder 4.0버전에 JS파일이 정상적으로 포함되지 않습니다. 4.0을 쓰고싶다면 mdx only 버전을 이용해주십시오.
 
 mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 인라인되어있는 mdx only 버전을 제작할 수 있습니다.
 일반적인 경우라면 mdx, mdd를 같이 만드시면 됩니다. (mdx only버전의 경우 파일크기가 약 200MB정도 커집니다. )

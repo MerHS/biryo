@@ -113,6 +113,11 @@ class HTMLRenderer {
             footnotes = List()
             retVal
         }
+      case Include("틀:루비", args) => {
+        val value = escapeHTML(args.getOrElse("글자", ""))
+        val ruby = escapeHTML(args.getOrElse("루비", ""))
+        HTMLString(s"<ruby><rb>$value</rb><rp>(</rp><rt>$ruby</rt><rp>)</rp></ruby>")
+      }
         // TODO: check it in premap (산사나무)
       case i @ Include(s, _) if !useInlineCSS && s.startsWith("틀:") =>
 

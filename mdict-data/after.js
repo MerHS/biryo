@@ -1,1 +1,1 @@
-$(".doctype").remove();
+$(".doctype").html('').remove();
