@@ -24,7 +24,7 @@ lazy val root = (project in file(".")).
         "-target:jvm-1.6",
         "-Xlog-reflective-calls")
     )),
-    name := "MainApp",
+    name := "biryo",
     resolvers ++= Seq(
       Resolver.sonatypeRepo("releases"),
       "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"

@@ -4,7 +4,7 @@
 
 ### NamuMark AST Parser / HTML Transcompiler for MDict
 
-[![Build Status][travis-image]][travis-url]
+[![Build Status](https://travis-ci.org/MerHS/biryo.svg?branch=master)](https://travis-ci.org/MerHS/biryo)
 
 ## Screenshot
 
@@ -120,6 +120,3 @@ TODO
 
 ## License
 Apache License 2.0
-
-[travis-image]: https://travis-ci.org/chentsulin/electron-react-boilerplate.svg?branch=master
-[travis-url]: https://travis-ci.org/chentsulin/electron-react-boilerplate
