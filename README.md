@@ -1,10 +1,12 @@
 # biryo [![Build Status](https://travis-ci.org/MerHS/biryo.svg?branch=master)](https://travis-ci.org/MerHS/biryo)
 
-
 ## Screenshot
 
 ![Running Demo](https://thumbs.gfycat.com/TestyCandidIsabellinewheatear-size_restricted.gif)
 
+## Downloads
+
+[Here](https://github.com/MerHS/biryo/releases)
 
 ## Library Dependencies
 
