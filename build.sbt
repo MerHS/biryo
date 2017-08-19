@@ -1,17 +1,23 @@
 import Dependencies._
 
+lazy val commonSettings = Seq(
+  organization := "net.kinetc",
+  scalaVersion := "2.11.8",
+  crossScalaVersions := Seq("2.11.8", "2.12.1"),
+  version := "1.0.0-SNAPSHOT",
+  description := "NamuMark AST Parser / HTML Transcompiler for MDict",
+  name := "biryo",
+  test in assembly := {}
+)
+
 lazy val root = (project in file(".")).
+  settings(commonSettings: _*).
   settings(
     inThisBuild(List(
-      organization := "net.kinetc",
-      scalaVersion := "2.11.8",
-      crossScalaVersions := Seq("2.11.8", "2.12.1"),
-      version      := "0.1.0-SNAPSHOT",
-      description := "NamuMark AST Parser / HTML Transcompiler for MDict",
+      mainClass in assembly := Some("net.kinetc.biryo.MainApp"),
+      assemblyJarName in assembly := "biryo.jar",
       javacOptions ++= Seq(
         "-encoding", "UTF-8",
-        "-source", "1.6",
-        "-target", "1.6",
         "-Xlint:unchecked",
         "-Xlint:deprecation"),
       scalacOptions ++= List(
@@ -21,10 +27,8 @@ lazy val root = (project in file(".")).
         "-deprecation",
         "-Xlint",
         "-language:_",
-        "-target:jvm-1.6",
         "-Xlog-reflective-calls")
     )),
-    name := "biryo",
     resolvers ++= Seq(
       Resolver.sonatypeRepo("releases"),
       "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"

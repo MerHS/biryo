@@ -165,13 +165,13 @@ class WikiParserSpec extends Specification {
 
       val demoSyntax =
         """{{{#!syntax scala
-          |  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+          |  def Redirect = rule { ("#redirect") ~ WL ~ LinkPath ~> NA.Redirect }
           |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
           |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
           |}}}""".stripMargin
       val demoSyntaxParsed = NA.SyntaxBlock(
         "scala",
-        """  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+        """  def Redirect = rule { ("#redirect") ~ WL ~ LinkPath ~> NA.Redirect }
           |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
           |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }""".stripMargin
       )
@@ -263,14 +263,14 @@ class WikiParserSpec extends Specification {
       parseAll("[* Simple '''FootNote''']") ===
         NA.FootNote(paraMaker(RS("Simple "), NA.Bold(RS("FootNote"))), None)
 
-      parser = new WikiParser("[*테스트 not simple --FootNote--]")
+      parser = new WikiParser("[*test not simple --FootNote--]")
       parse(parser, parser.FootNote.run()) ===
-        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
-      parseAll("[*테스트 not simple --FootNote--]") ===
-        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("테스트"))
+        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("test"))
+      parseAll("[*test not simple --FootNote--]") ===
+        NA.FootNote(paraMaker(RS("not simple "), NA.Strike(RS("FootNote"))), Some("test"))
 
-      parseAll("[* 각주 in [* 각주]]") ===
-        NA.FootNote(paraMaker(RS("각주 in "), NA.FootNote(RS("각주"), None)), None)
+      parseAll("[* footnote in [* footnote]]") ===
+        NA.FootNote(paraMaker(RS("footnote in "), NA.FootNote(RS("footnote"), None)), None)
     }
 
     "parse BlockQuote" in {

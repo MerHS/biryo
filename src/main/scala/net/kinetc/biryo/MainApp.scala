@@ -10,23 +10,37 @@ import scala.io.Source
 
 object MainApp extends App {
   import MDictMaker._
-//   if (args.length != 1)
-//     throw new IllegalArgumentException("usage: ./namuhtml-scala <filename>")
-//   val fileName = args(0)
-//   val namuFile = new java.io.File(filename)
-//   if (namuFile.exists == false)
-//     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "./namuwiki.json"
-  val useInlineCSS = false
+  // ---- parsing arguments ----
+
+  var filename = ""
+  var useInlineCSS = false
+
+  if (args.length == 0) {
+    throw new IllegalArgumentException("usage: java -jar biryo.jar [-inline] <filename>")
+  } else if (args.length == 1) {
+    filename = args(0)
+  } else {
+    if (args(0) != "-inline")
+      throw new IllegalArgumentException("usage: java -jar biryo.jar [-inline] <filename>")
+
+    filename = args(1)
+    useInlineCSS = true
+  }
+
+  val namuFile = new java.io.File(filename)
+  if (namuFile.exists == false)
+    throw new IllegalArgumentException(filename + "does not exist.")
   
+  // ---- read files ----
+
   val frameSourceFolder = "./mdict-data/frame"
 
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
-  val cssSource = Source.fromFile("./mdict-data/biryo.css")
+  val cssSource = Source.fromFile("./mdict-data/biryo.min.css")
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
   HTMLRenderer.useInlineCSS = useInlineCSS
 
@@ -34,8 +48,10 @@ object MainApp extends App {
   if (!fsfFile.exists)
     fsfFile.mkdir()
 
-  val namuSource = Source.fromFile(namuFile)
+  val namuSource = Source.fromFile(filename)
   val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
+
+  // ---- making Actors ----
 
   val actorSystem = ActorSystem("namuParser")
   val printer = actorSystem.actorOf(PrinterActor.props(exportFile), "printerActor")
@@ -48,6 +64,7 @@ object MainApp extends App {
   var rrIndex = 0 // round robin / we can make it better
   var docCount = 0
 
+
   def makeMDict(js: ast.JValue): Unit = {
     var isFrame = false
     val prefix = js.get("namespace").getString match {
@@ -59,7 +76,7 @@ object MainApp extends App {
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
-        if (isFrame) {
+        if (!useInlineCSS && isFrame) {
           mdictMakers(rrIndex) ! FrameDoc(title, text)
           rrIndex = (rrIndex + 1) % 3
         }

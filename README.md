@@ -1,10 +1,5 @@
 # biryo [![Build Status](https://travis-ci.org/MerHS/biryo.svg?branch=master)](https://travis-ci.org/MerHS/biryo)
 
-현재 파일을 옮겨서 테스트중입니다. 오늘 내로 완성해서 올리겠습니다.
-
-### NamuMark AST Parser / HTML Transcompiler for MDict
-
-
 
 ## Screenshot
 
@@ -94,6 +89,7 @@
 ### Unsupported Syntax
 
 * 7.2. 외부 이미지 링크 (현재 지원 종료)
+  * 구현 계획 없음
 * 10\. 리스트
   * 들여쓰기는 구현되어 있으므로 리스트 첨자를 제외한 부분은 거의 비슷하게 보입니다.
 * 16.3. pagecount
@@ -103,10 +99,46 @@
  Katex로 구현할까 고민 중
 * 19\. 접기
 
+## How to build an Executable JAR
+
+1. [JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html) 설치
+  * 환경변수 (PATH) 설정이 되어있지 않아 java 명령어가 작동하지 않으면 해줍니다. 
+2. [sbt](https://github.com/MerHS/biryo) 설치 (Scala 빌드를 위한 툴입니다.)
+
+다음부터는 cmd, powershell, bash등 원하는 쉘에서 
+
+3. `git clone https://github.com/MerHS/biryo`
+4. `cd biryo`
+5. `sbt assembly`
+
+target/scala-2.11 폴더에 `biryo.jar`이 만들어집니다. 
+
 
 ## How to Use
 
-TODO
+주의: 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**
+**MDict 2.0** 버전 사용자는 **MdxBuilder 4.0**버전으로 mdx/mdd파일을 만들어야 정상 작동합니다.
+
+mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 인라인되어있는 mdx only 버전을 제작할 수 있습니다.
+일반적인 경우라면 mdx, mdd를 같이 만드시면 됩니다. (mdx only버전의 경우 파일크기가 약 200MB정도 커집니다. )
+
+위에서 jar파일을 만들었거나 받았다고 가정하고 
+
+0. jar파일이 있는 경로에 [mdict-data](https://github.com/MerHS/biryo/tree/master/mdict-data) 폴더를 넣습니다. 스타일링 및 JS파일을 위해 반드시 필요합니다. 
+1. [나무위키 데이터베이스 덤프](https://namu.wiki/w/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4:%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84?from=%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4%20%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84)를 받고 압축을 풀어 jar파일과 같은 경로에 넣습니다. (이름이 namuwiki.json 파일이라고 가정)
+2. `java -jar biryo.jar namuwiki.json`
+  * mdx only 버전용 HTML을 만들고 싶으면 `java -jar biryo.jar -inline namuwiki.json` 
+3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 MdxBuilder의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
+  * mdx only 용은 Data에 아무것도 넣지 않습니다.
+4. MdxBuilder의 포맷에는 `MDict(Html)`, Encoding엔 `UTF-8(Unicode)`를 선택합니다.
+  * MdxBuilder 4.0버전에선 Sorting locale만 Korean으로 설정하면 됩니다. 
+5. Start!
+6. 만들어진 mdx, mdd를 MDict가 있는 기기에 넣으면 끝 (반드시 mdx와 mdd가 같은 경로에 있어야 합니다.)
+
+
+멀티스레드 환경에서 작동하며 2017년 3월 데이터 기준 약 480000개 표제어를 HTML txt파일로 변환하는데 i7-4790 기준 약 10분정도 소요됩니다.
+
+
 
 ## Issues
 

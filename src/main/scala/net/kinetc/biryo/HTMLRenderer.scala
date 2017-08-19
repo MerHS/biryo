@@ -117,7 +117,7 @@ class HTMLRenderer {
       case i @ Include(s, _) if !useInlineCSS && s.startsWith("틀:") =>
 
         var id = escapeHTMLStr(s.substring(2)).replaceAll(" ", "_") + '-' + includes.length
-        includes ::= (i, id)
+        includes = (i, id) :: includes
         HTMLString(s"<div id=${toQ("틀-" + id)}></div>")
   }
 
