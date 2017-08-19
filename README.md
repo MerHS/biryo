@@ -21,6 +21,7 @@
 * Mappable / Traversable NamuMark AST(Abstract Syntax Tree) (NamuAST.scala)
 * HTML Generator(for MdxBuilder)
 
+## NamuMark AST (`NamuAST.scala`)
 
 ### Supporting NamuMark Syntax
 
@@ -102,7 +103,7 @@
 ## How to build an Executable JAR
 
 1. [JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html) 설치
-  * 환경변수 (PATH) 설정이 되어있지 않아 java 명령어가 작동하지 않으면 해줍니다. 
+  * 환경변수 (PATH) 설정이 되어있지 않아 java 명령어가 작동하지 않으면 같이 해줍니다. 
 2. [sbt](https://github.com/MerHS/biryo) 설치 (Scala 빌드를 위한 툴입니다.)
 
 다음부터는 cmd, powershell, bash등 원하는 쉘에서 
@@ -116,7 +117,7 @@ target/scala-2.11 폴더에 `biryo.jar`이 만들어집니다.
 
 ## How to Use
 
-주의: 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**
+**주의:** 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**
 **MDict 2.0** 버전 사용자는 **MdxBuilder 4.0**버전으로 mdx/mdd파일을 만들어야 정상 작동합니다.
 
 mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 인라인되어있는 mdx only 버전을 제작할 수 있습니다.
@@ -133,12 +134,19 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 4. MdxBuilder의 포맷에는 `MDict(Html)`, Encoding엔 `UTF-8(Unicode)`를 선택합니다.
   * MdxBuilder 4.0버전에선 Sorting locale만 Korean으로 설정하면 됩니다. 
 5. Start!
-6. 만들어진 mdx, mdd를 MDict가 있는 기기에 넣으면 끝 (반드시 mdx와 mdd가 같은 경로에 있어야 합니다.)
+6. 만들어진 mdx, mdd를 MDict가 있는 기기에 넣습니다. (반드시 mdx와 mdd가 같은 경로에 있어야 합니다.)
 
 
-멀티스레드 환경에서 작동하며 2017년 3월 데이터 기준 약 480000개 표제어를 HTML txt파일로 변환하는데 i7-4790 기준 약 10분정도 소요됩니다.
+멀티스레드 환경에서 작동하며, 2017년 3월 데이터를 기준으로 약 480000개 표제어를 HTML txt 파일로 변환하는데 약 10분정도 소요됩니다. (i7-4790 기준)
 
 
+## TODO
+
+* Fix Bugs (especially Tables)
+* List, Macro, etc...
+* Multi-threading w/ Akka more Elegantly
+* Fine commenting
+* Capability of making another libraries  (e.g. making raw-text file for machine learning...)
 
 ## Issues
 
