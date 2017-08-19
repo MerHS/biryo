@@ -17,10 +17,11 @@ object MainApp extends App {
 //   if (namuFile.exists == false)
 //     throw new IllegalArgumentException(fileName + "does not exist.")
 
-  val namuFile = "../namuwiki.json"
+  val namuFile = "./namuwiki.json"
+  val useInlineCSS = false
+  
   val frameSourceFolder = "./mdict-data/frame"
 
-  val useInlineCSS = false
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
@@ -44,24 +45,26 @@ object MainApp extends App {
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker3")
   )
-  var rrIndex = 0
+  var rrIndex = 0 // round robin / we can make it better
   var docCount = 0
 
   def makeMDict(js: ast.JValue): Unit = {
     var isFrame = false
     val prefix = js.get("namespace").getString match {
       case Some("0") => ""
-      case Some("1") => isFrame = true; ""
+      case Some("1") => isFrame = true; "틀:"
       case Some("2") => "분류:"
       case Some("6") => "나무위키:"
       case _ => return
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
-        if (isFrame)
+        if (isFrame) {
           mdictMakers(rrIndex) ! FrameDoc(title, text)
-        else
-          mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
+          rrIndex = (rrIndex + 1) % 3
+        }
+      
+        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
         rrIndex = (rrIndex + 1) % 3
         docCount += 1
       case _ => ()

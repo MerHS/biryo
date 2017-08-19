@@ -5,7 +5,24 @@ lazy val root = (project in file(".")).
     inThisBuild(List(
       organization := "net.kinetc",
       scalaVersion := "2.11.8",
-      version      := "0.1.0-SNAPSHOT"
+      crossScalaVersions := Seq("2.11.8", "2.12.1"),
+      version      := "0.1.0-SNAPSHOT",
+      description := "NamuMark AST Parser / HTML Transcompiler for MDict",
+      javacOptions ++= Seq(
+        "-encoding", "UTF-8",
+        "-source", "1.6",
+        "-target", "1.6",
+        "-Xlint:unchecked",
+        "-Xlint:deprecation"),
+      scalacOptions ++= List(
+        "-encoding", "UTF-8",
+        "-feature",
+        "-unchecked",
+        "-deprecation",
+        "-Xlint",
+        "-language:_",
+        "-target:jvm-1.6",
+        "-Xlog-reflective-calls")
     )),
     name := "MainApp",
     resolvers ++= Seq(

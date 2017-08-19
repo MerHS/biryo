@@ -423,10 +423,12 @@ object NamuAST {
     override def mkString = s"<table ${c(wordBoxClass)}><tbody><tr><td><p>${value.mkString}</p></td></tr></tbody></table>"
     def constructor(nm: NamuMark) = WordBox(nm)
   }
+  // {{{+$size $value}}}
   case class SizeBlock(value: NamuMark, size: Int) extends HasNamu {
     override def mkString = s"<font size=${toQ(s"+$size")}>${value.mkString}</font>"
     def constructor(nm: NamuMark) = SizeBlock(nm, size)
   }
+  // {{{#color $value}}}
   case class ColorBlock(value: NamuMark, color: String) extends HasNamu {
     override def mkString = s"<font color=${toQ(color)}>${value.mkString}</font>"
     def constructor(nm: NamuMark) = ColorBlock(nm, color)

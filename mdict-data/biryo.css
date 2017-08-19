@@ -22,7 +22,6 @@ div {
 table {
     border-spacing: 0;
     border-collapse: collapse;
-    display: table;
     border-color: grey;
 }
 

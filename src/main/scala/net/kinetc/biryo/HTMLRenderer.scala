@@ -28,12 +28,7 @@ object HTMLRenderer {
   }
 
   def escapeHTMLStr(s: String): String = {
-    s.replaceAll("\\\\", "_b_").replaceAll("'", "_q_")
-      .replaceAll("\"", "_d_").replaceAll("/", "_s_")
-      .replaceAll("\\.", "_j_").replaceAll("#", "_h_")
-      .replaceAll(">", "_g_").replaceAll("<", "_l_")
-      .replaceAll(":", "_c_").replaceAll("\\(", "_o_")
-      .replaceAll("\\)", "_p_")
+    s.replaceAll("\\p{Punct}", "_p_")
   }
 
   def escapePathStr(s: String): String = {
@@ -57,7 +52,7 @@ class HTMLRenderer {
   var footnoteListLoc: List[Int] = List()
   var fnLoc = 0
   var headings: List[Headings] = List()
-  var includes: List[Include] = List()
+  var includes: List[(Include, String)] = List()
   var isRedirect: Boolean = false
   protected var headListExists: Boolean = false
 
@@ -92,8 +87,7 @@ class HTMLRenderer {
   def lister(mark: NamuMark): Unit = {
     mark match {
       case h @ Headings(_, _) => headings ::= h
-      case f@FootNote(_, _) => fnLoc += 1; footnotes ::= f
-      case i@Include(s, _) if s.startsWith("틀:") => includes ::= i
+      case f @ FootNote(_, _) => fnLoc += 1; footnotes ::= f
       case FootNoteList => footnoteListLoc ::= fnLoc; fnLoc = 0
       case Redirect(_) => isRedirect = true
       case _ => ()
@@ -119,18 +113,19 @@ class HTMLRenderer {
             footnotes = List()
             retVal
         }
+        // TODO: check it in premap (산사나무)
+      case i @ Include(s, _) if !useInlineCSS && s.startsWith("틀:") =>
 
-      case Include(s, _) if !useInlineCSS && s.startsWith("틀:") =>
-        var id = s.substring(2).replaceAll(" ", "_")
-        id = escapeHTMLStr(id)
+        var id = escapeHTMLStr(s.substring(2)).replaceAll(" ", "_") + '-' + includes.length
+        includes ::= (i, id)
         HTMLString(s"<div id=${toQ("틀-" + id)}></div>")
   }
 
-  def footerRenderer(incs: List[Include]): String = {
-    incs.map(includeFooterRenderer).mkString
+  def footerRenderer(incs: List[(Include, String)]): String = {
+    incs.map(x => includeFooterRenderer(x._1 , x._2)).mkString
   }
 
-  def includeFooterRenderer(inc: Include): String = {
+  def includeFooterRenderer(inc: Include, id: String): String = {
     if (!inc.rawHref.startsWith("틀:"))
       return ""
 
@@ -140,7 +135,6 @@ class HTMLRenderer {
         yield s"'${escapeJSStr(k)}': '${escapeJSStr(v)}'"
     val replArgObj =
       if (args.isEmpty) "''" else "{" + args.mkString(",") + "}"
-    val id = escapeHTMLStr(href)
     val phref = escapePathStr(href)
     s"<script src=${toQ("frame/" + phref + ".js")}></script><script>repl($replArgObj, '$id', x);x='';</script>"
   }

@@ -9,8 +9,8 @@ import scala.util.{Failure, Success}
   * Created by KINETC on 2017-07-27.
   */
 object MDictMaker {
-  def props(printActor: ActorRef, framePrinterActor: ActorRef)
-  = Props(new MDictMaker(printActor, framePrinterActor))
+  def props(printActor: ActorRef, framePrinterActor: ActorRef) = 
+    Props(new MDictMaker(printActor, framePrinterActor))
   final case class MDictDoc(title: String, text: String)
 
   final case class FrameDoc(title: String, text: String)

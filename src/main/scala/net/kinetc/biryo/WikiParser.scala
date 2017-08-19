@@ -356,7 +356,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def LinkOnlyFN: Rule1[NM] = rule {
-    CommandStr("[*") ~ LineStringExceptC(']') ~ ']' ~> NA.LinkOnlyFN
+    CommandStr("[*") ~ LineStringExceptSPred(" ]") ~ ']' ~> NA.LinkOnlyFN
   }
 
   // Rule 5. Macros (Single Bracket)
@@ -597,6 +597,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def LineStringExceptS(s: String) = rule{ clearSB() ~ (!CheckLineEnd ~ CharExceptS(s)).* ~ push(sb.toString) }
   def CharExceptSPred(s: String) = rule { !(!('\\' ~ anyOf(s)) ~ anyOf(s)) ~ (NormalChar | QuotedChar) }
   def StringExceptSPred(s: String) = rule { clearSB() ~ CharExceptSPred(s).* ~ push(sb.toString) }
+  def LineStringExceptSPred(s: String) = rule{ clearSB() ~ (!CheckLineEnd ~ CharExceptSPred(s)).* ~ push(sb.toString) }
 
   def SingleWord = StringExceptSPred(" \t\n\r")
   def LineString = StringExceptSPred("\n\r")

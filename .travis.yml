@@ -1,0 +1,6 @@
+language: scala
+scala:
+   - 2.11.8
+   - 2.12.1
+
+sbt ++$TRAVIS_SCALA_VERSION test

@@ -28,7 +28,7 @@ class FrameRenderer extends HTMLRenderer {
         fns.reverse.map(
           f => FrameReverseFootNote(f.value, f.noteStr)
             .postMap(renderMapper)
-            .postMap(frameFootnoteRenderer)
+            .preMap(frameFootnoteRenderer)
             .mkString.replace("\n", "<br>")
         ).mkString + "</div>"
   }
@@ -37,6 +37,7 @@ class FrameRenderer extends HTMLRenderer {
   protected def frameFootnoteRenderer: NamuMap = {
     case FootNote(v, n) => FrameFootnote(v, n)
     case Include(_, _) => HTMLString("")
+    case DocType(_) => HTMLString("")
   }
 
   case class FrameFootnote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
