@@ -18,6 +18,7 @@ lazy val root = (project in file(".")).
       assemblyJarName in assembly := "biryo.jar",
       javacOptions ++= Seq(
         "-encoding", "UTF-8",
+        "-Dfile.encoding", "UTF-8",
         "-Xlint:unchecked",
         "-Xlint:deprecation"),
       scalacOptions ++= List(

@@ -40,7 +40,7 @@ object MainApp extends App {
 
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
-  val cssSource = Source.fromFile("./mdict-data/biryo.min.css")
+  val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
   HTMLRenderer.useInlineCSS = useInlineCSS
 
@@ -48,7 +48,7 @@ object MainApp extends App {
   if (!fsfFile.exists)
     fsfFile.mkdir()
 
-  val namuSource = Source.fromFile(filename)
+  val namuSource = Source.fromFile(filename, "UTF-8")
   val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
 
   // ---- making Actors ----

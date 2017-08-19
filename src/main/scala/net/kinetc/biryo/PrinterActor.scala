@@ -18,7 +18,7 @@ object PrinterActor {
 class PrinterActor(path: String) extends Actor {
   import PrinterActor._
 
-  val pathFile: PrintWriter = new PrintWriter(path)
+  val pathFile: PrintWriter = new PrintWriter(path, "UTF-8")
   var parsedNo = 0
   val oldTime = new Date()
   var time = new Date()

@@ -127,8 +127,8 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 
 0. jar파일이 있는 경로에 [mdict-data](https://github.com/MerHS/biryo/tree/master/mdict-data) 폴더를 넣습니다. 스타일링 및 JS파일을 위해 반드시 필요합니다. 
 1. [나무위키 데이터베이스 덤프](https://namu.wiki/w/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4:%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84?from=%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4%20%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84)를 받고 압축을 풀어 jar파일과 같은 경로에 넣습니다. (이름이 namuwiki.json 파일이라고 가정)
-2. `java -jar biryo.jar namuwiki.json`
-  * mdx only 버전용 HTML을 만들고 싶으면 `java -jar biryo.jar -inline namuwiki.json` 
+2. `java -Dfile.encoding=UTF-8 -jar biryo.jar namuwiki.json`
+  * mdx only 버전용 HTML을 만들고 싶으면 `java -Dfile.encoding=UTF-8 -jar biryo.jar -inline namuwiki.json` 
 3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 MdxBuilder의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
   * mdx only 용은 Data에 아무것도 넣지 않습니다.
 4. MdxBuilder의 포맷에는 `MDict(Html)`, Encoding엔 `UTF-8(Unicode)`를 선택합니다.
