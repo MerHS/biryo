@@ -11,7 +11,7 @@ import scala.util.{Failure, Success}
 object MDictMaker {
   def props(printActor: ActorRef, framePrinterActor: ActorRef) = 
     Props(new MDictMaker(printActor, framePrinterActor))
-  final case class MDictDoc(title: String, text: String)
+  final case class MDictDoc(title: String, text: String, printRaw: Boolean=false)
 
   final case class FrameDoc(title: String, text: String)
   case object ParseEnd
@@ -38,6 +38,12 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
     }
   }
 
+  def makeRawHtml(title: String, text: String): Unit = {
+    printActor ! PrintText(
+      title + "\n<pre>" + HTMLRenderer.escapeHTML(text) + "</pre>\n</>"
+    )
+  }
+
   def makeFrameJS(title: String, text: String): Unit = {
     val parser = new WikiParser(text)
     val renderer = new FrameRenderer
@@ -54,7 +60,11 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
   }
 
   def receive = {
-    case MDictDoc(title, text) => makeMDictHtml(title, text)
+    case MDictDoc(title, text, printRaw) =>
+      if (printRaw)
+        makeRawHtml(title, text)
+      else
+        makeMDictHtml(title, text)
     case FrameDoc(title, text) => makeFrameJS(title, text)
     case ParseEnd => printActor ! Close
   }
