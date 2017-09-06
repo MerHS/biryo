@@ -38,6 +38,11 @@ object HTMLRenderer {
       .replaceAll(":", "_c_")
   }
 
+  def deleteExternalTag(s: String): String = {
+    s.replaceAll("<embed(.|\\v)*</embed>|<iframe(.|\\v)*</iframe>", "")
+      .replaceAll("href=\"http://", "href=\"entry://")
+  }
+
   var inlineStyle = ""
   var useInlineCSS = false
 }
@@ -201,11 +206,6 @@ class HTMLRenderer {
       case None =>
         s"<a ${c(exLinkClass)} href=${toQ(s"entry://${href.value}")}><span ${c(exLinkHeaderClass)}>#</span>외부링크</a>"
     }
-  }
-
-  protected def deleteExternalTag(s: String): String = {
-    s.replaceAll("<embed.*</embed>|<iframe.*</iframe>", "")
-      .replaceAll("href=\"http", "href=\"entry://")
   }
 
   // Renderer Only AST Node
