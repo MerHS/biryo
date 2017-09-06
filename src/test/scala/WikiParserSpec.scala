@@ -173,7 +173,8 @@ class WikiParserSpec extends Specification {
         "scala",
         """  def Redirect = rule { ("#redirect") ~ WL ~ LinkPath ~> NA.Redirect }
           |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
-          |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }""".stripMargin
+          |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }
+          |""".stripMargin
       )
       parser = new WikiParser(demoSyntax)
       parse(parser, parser.SyntaxBlock.run()) === demoSyntaxParsed
@@ -233,6 +234,9 @@ class WikiParserSpec extends Specification {
         NA.FileLink("some_file.jpg", Map("width" -> "30", "height" -> "10"))
       parseAll("[[파일:some_file.jpg|width=30&height=10]]") ===
         NA.FileLink("some_file.jpg", Map("width" -> "30", "height" -> "10"))
+
+      parser = new WikiParser("[[분류:나무 텍스트]]")
+      parse(parser, parser.DocType.run()) === NA.DocType("나무 텍스트")
     }
 
     "parse Macros" in {

@@ -11,25 +11,36 @@ import scala.io.Source
 object MainApp extends App {
   import MDictMaker._
 
+  val helpText =
+    """
+      |usage: java -jar biryo.jar [-inline|-raw] <filename>
+    """.stripMargin
+
   // ---- parsing arguments ----
 
   var filename = ""
   var useInlineCSS = false
+  var printRaw = false
 
   if (args.length == 0) {
-    throw new IllegalArgumentException("usage: java -jar biryo.jar [-inline] <filename>")
+    throw new IllegalArgumentException(helpText)
   } else if (args.length == 1) {
     filename = args(0)
   } else {
-    if (args(0) != "-inline")
-      throw new IllegalArgumentException("usage: java -jar biryo.jar [-inline] <filename>")
+    args(0) match {
+      case "-inline" =>
+        useInlineCSS = true
+      case "-raw" =>
+        printRaw = true
+      case _ =>
+        throw new IllegalArgumentException(helpText)
+    }
 
     filename = args(1)
-    useInlineCSS = true
   }
 
   val namuFile = new java.io.File(filename)
-  if (namuFile.exists == false)
+  if (!namuFile.exists)
     throw new IllegalArgumentException(filename + "does not exist.")
   
   // ---- read files ----
@@ -76,12 +87,12 @@ object MainApp extends App {
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
-        if (!useInlineCSS && isFrame) {
+        if (!printRaw && !useInlineCSS && isFrame) {
           mdictMakers(rrIndex) ! FrameDoc(title, text)
           rrIndex = (rrIndex + 1) % 3
         }
       
-        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text)
+        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text, printRaw)
         rrIndex = (rrIndex + 1) % 3
         docCount += 1
       case _ => ()

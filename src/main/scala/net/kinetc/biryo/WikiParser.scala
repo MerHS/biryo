@@ -394,8 +394,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def Link: Rule1[NM] = rule { FileLink | DocType | DocLink }
 
   def DocType: Rule1[NM] = rule {
-    CommandStr("[[분류:") ~ LineStringExceptS("]]") ~
-      CommandStr("]]") ~ WL ~ CheckLineEnd ~> NA.DocType
+    CommandStr("[[분류:") ~ LineStringExceptS("]]") ~ CommandStr("]]") ~> NA.DocType
   }
 
   def FileLink: Rule1[NM] = rule {
@@ -445,7 +444,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def SyntaxBlock: Rule1[NM] = rule {
     ICCommandStr("{{{#!syntax") ~ WL.? ~ SingleWord ~ WL.? ~ NewLine.? ~
-      capture((!"\n}}}" ~ ANY).*) ~ "\n}}}" ~> NA.SyntaxBlock
+      capture((!"\n}}}" ~ ANY).*) ~ "}}}" ~> NA.SyntaxBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등

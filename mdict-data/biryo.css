@@ -166,7 +166,7 @@ caption {
     display: block;
 }
 
-.doctype {
+.doctype, #doctype-list {
     border: 1px solid #777;
     padding: 5px;
     margin: 12px 0;

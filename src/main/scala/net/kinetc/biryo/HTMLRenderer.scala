@@ -72,9 +72,9 @@ class HTMLRenderer {
         "<body>" +
         s"<h1 ${c("title")}>$title</h1>" +
         mainParagraph +
+        """<div id="doctype-list"></div>""" +
         footnotesRenderer(footnotes) +
         footerRenderer(includes) +
-        """<div id="category-list"></div>""" +
         s"<br><a href=${toQ(s"source://$title")}>[source]</a>" + // for debug
         "</body>" +
         """<script src="after.js"></script>"""
