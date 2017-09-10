@@ -164,7 +164,7 @@ class WikiParserSpec extends Specification {
       parseAll(demoTeul) === demoTeulParsed
 
       val demoSyntax =
-        """{{{#!syntax scala
+        """{{{#!Syntax scala
           |  def Redirect = rule { ("#redirect") ~ WL ~ LinkPath ~> NA.Redirect }
           |  def Comment = rule { "##" ~ LineString ~ FetchLineEnd ~> NA.Comment }
           |  def HR = rule { (4 to 10).times(ch('-')) ~ &(NewLine | EOI) ~ push(NA.HR) }

@@ -202,15 +202,15 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def TRWithCaption: Rule2[NM, NA.TR] = rule {
     (TDWithCaption ~> ((td: NA.TD) => List[NA.TD](td))) ~
-      (!("||" ~ CheckWLLineEnd) ~ TD ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
-      "||" ~ FetchLineEnd ~>
+      (!CheckTableEnd ~ TD ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
+      FetchTableEnd ~>
       ((tdl: List[NA.TD]) => NA.TR(tdl.reverse, List[NA.TableStyle]()))
   }
 
   def TR: Rule1[NA.TR] = rule {
     push(List[NA.TD]()) ~
-      (TD ~ !("||" ~ CheckWLLineEnd) ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
-      TD ~ "||" ~ FetchLineEnd ~>
+      (TD ~ !CheckTableEnd ~> ((tdl: List[NA.TD], td: NA.TD) => td :: tdl)).* ~
+      TD ~ FetchTableEnd ~>
       ((tdl: List[NA.TD], td: NA.TD) => NA.TR((td :: tdl).reverse, List[NA.TableStyle]()))
   }
 
@@ -230,7 +230,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def FetchTableString = rule {
-    FetchUntilS("||") ~> ((tsl: List[NA.TableStyle], s: String) =>
+    FetchTableRawString ~> ((tsl: List[NA.TableStyle], s: String) =>
       if (s.length == 0) {
         tsl :: s :: HNil
       } else if (s.length >= 2 && s(0) == ' ' && s(s.length - 1) == ' ') {
@@ -243,6 +243,18 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         tsl :: s :: HNil
       }
       )
+  }
+
+  def FetchTableEnd: Rule0 = rule {
+    CommandStr("||") ~ ch('|').* ~ FetchLineEnd
+  }
+
+  def CheckTableEnd: Rule0 = rule {
+    &(CommandStr("||") ~ ch('|').* ~ CheckWLLineEnd)
+  }
+
+  def FetchTableRawString: Rule1[String] = rule {
+    capture((!CommandStr("||") ~ ANY).*) ~ !EOI
   }
 
   def FetchTDColSpan: Rule1[List[NA.TableStyle]] = rule {
@@ -444,7 +456,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def SyntaxBlock: Rule1[NM] = rule {
     ICCommandStr("{{{#!syntax") ~ WL.? ~ SingleWord ~ WL.? ~ NewLine.? ~
-      capture((!"\n}}}" ~ ANY).*) ~ "}}}" ~> NA.SyntaxBlock
+      capture((!"}}}" ~ ANY).*) ~ "}}}" ~> NA.SyntaxBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
@@ -561,11 +573,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def FetchLineEnd = rule {
     WL.? ~ (NewLine | &(EOI))
-  }
-
-  // if it doesn't find `s`, it fails
-  def FetchUntilS(s: String): Rule1[String] = rule {
-    capture((!CommandStr(s) ~ ANY).*) ~ !EOI
   }
 
   def ICCommandStr(s: String) = rule { !('\\' ~ ignoreCase(s)) ~ atomic(ignoreCase(s)) }
