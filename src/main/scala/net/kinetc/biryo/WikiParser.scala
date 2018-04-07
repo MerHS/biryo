@@ -4,7 +4,7 @@ import org.parboiled2._
 import shapeless.HNil
 
 import scala.annotation.switch
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 
 class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
@@ -23,7 +23,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     (MATCH ~> ((s: String) =>
       new WikiParser(s).NamuMarkRule.run() match {
         case Success(result) => parserSuccess = true; result
-        case Failure(e) => parserSuccess = false; NA.BR
+        case Failure(e) => e.printStackTrace(); parserSuccess = false; NA.BR
       })) ~ test(parserSuccess)
   }
 
@@ -82,6 +82,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '-' => HR | LineTerm
         case '>' => BlockQuote | LineTerm
         case '[' => LineStartMacro | LineTerm
+        case '<' => MathBlock | LineTerm
         case _ => LineTerm
       }
     }
@@ -97,6 +98,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '-' => HR | LineTermEndWith(s)
         case '>' => BlockQuoteEW(s) | LineTermEndWith(s)
         case '[' => LineStartMacro | LineTermEndWith(s)
+        case '<' => MathBlock | LineTermEndWith(s)
         case _ => LineTermEndWith(s)
       }
     }
@@ -214,8 +216,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ((tdl: List[NA.TD], td: NA.TD) => NA.TR((td :: tdl).reverse, List[NA.TableStyle]()))
   }
 
-  // TODO: "||||||" ~ (역방향으로 Fetch)
-  // push(NA.ColSpan(0)) ~ ("||" ~> ((cs: NA.ColSpan) => NA.ColSpan(cs.value + 1)).+
   def TD: Rule1[NA.TD] = rule {
     FetchTDColSpan ~ FetchTableData
   }
@@ -281,7 +281,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         // Parsing Table Style
         ignoreCase("table") ~ WL.? ~
           (
-            (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable = true))) |
+            (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable=true))) |
             (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=true))) |
             (ignoreCase("align=") ~ UnquoteStr ~>
               ((v: String) => {
@@ -311,7 +311,8 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       ) |
       (
         // Parsing Table Cell Style
-        (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable = false))) |
+        (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v => NA.BorderColor(v, forTable=false))) |
+        (ignoreCase("rowbgcolor=") ~ UnquoteStr ~> (v => NA.RowBgColor(v))) |
         (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v => NA.BgColor(v, forTable=false))) |
         (ignoreCase("width=") ~ UnquoteStr ~> (v => NA.Width(v, forTable=false))) |
         (ignoreCase("height=") ~ UnquoteStr ~> (v => NA.Height(v, forTable=false)))
@@ -375,11 +376,16 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   // 매크로는 대소문 구분 X
 
   def LineStartMacro: Rule1[NM] = rule { FootNoteList | TableOfContents }
-  def OtherMacro: Rule1[NM] = rule { BR | Include | DateMacro | Anchor | YoutubeLink }
+  def OtherMacro: Rule1[NM] = rule { BR | Anchor | Include | YoutubeLink | Age | DateMacro | DDay | PageCount }
+
+  def PageCount = rule { PageCountAll | PageCountNamespaced }
+  def PageCountAll = rule { ICCommandStr("[pagecount]") ~ push(NA.PageCount(""))}
+  def PageCountNamespaced = rule { ICCommandStr("[pagecount(") ~ LineStringExceptC(')') ~ ")]" ~> NA.PageCount }
 
   def FootNoteList = rule {
     (CommandStr("[각주]") | ICCommandStr("[footnote]")) ~ WL.? ~ push(NA.FootNoteList)
   }
+
   def TableOfContents = rule {
     (CommandStr("[목차]") | ICCommandStr("[tableofcontents]")) ~ WL.? ~ CheckLineEnd ~ push(NA.TableOfContents)
   }
@@ -394,6 +400,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def BR = rule { ICCommandStr("[br]") ~ push(NA.BR) }
   def Age = rule { ICCommandStr("[age(") ~ LineStringExceptC(')') ~ ")]" ~> NA.AgeMacro }
   def DateMacro = rule { (ICCommandStr("[date]") | ICCommandStr("[datetime]")) ~ push(NA.DateMacro) }
+  def DDay = rule { ICCommandStr("[dday(") ~ LineStringExceptC(')') ~ ")]" ~> NA.DDay }
   def Anchor = rule { ICCommandStr("[anchor(") ~ LineStringExceptC(')') ~ CommandStr(")]") ~> NA.Anchor }
   def YoutubeLink = rule {
     ICCommandStr("[youtube(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
@@ -425,25 +432,43 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def LinkPath: Rule1[NA.NamuHref] = rule {
     ("#s-" ~ (capture(CharPredicate.Digit.+) ~> (_.toInt)).+('.') ~> NA.SelfParaHref) | // Paragraph of Current Document
-    ('#' ~ GetUntilAlias ~> NA.SelfAnchorHref) | // Anchor of Current Document
+    ('#' ~ GetUntilAliasOrHash ~ &("]]" | '|') ~> NA.SelfAnchorHref) | // Anchor of Current Document
     (&("http://" | "https://") ~ GetUntilAlias ~> NA.ExternalHref) |
     ("../" ~ &("]]" | '|') ~ push(NA.SuperDocHref)) |
     ('/' ~ NormalLinkPath ~> NA.ChildDocHref) |
     NormalLinkPath // Normal Link
   }
 
+  private def NormalLinkPath: Rule1[NA.NamuHref] = rule {
+    GetUntilAliasOrHash.+('#') ~ &("]]" | '|') ~> ((link: Seq[String]) => {
+      if (link.last.startsWith("s-")) {
+        Try(link.last.substring(2).split("\\.").map(_.toInt)) match {
+          case Success(paraNo) =>
+            NA.ParaHref(link.init.mkString("#"), paraNo)
+          case _ =>
+            LinkToAnchorOrNormalHref(link)
+        }
+      } else
+        LinkToAnchorOrNormalHref(link)
+    })
+  }
+
+  private def LinkToAnchorOrNormalHref(link: Seq[String]): NA.NamuHref = {
+    if (link.last.isEmpty)
+      NA.NormalHref(link.init.mkString("#"))
+    else if (link.lengthCompare(1) > 0)
+      NA.AnchorHref(link.init.mkString("#"), link.last)
+    else
+      NA.NormalHref(link.mkString("#"))
+  }
+
+  private def GetUntilAliasOrHash: Rule1[String] = rule {
+    clearSB() ~ (!(CheckS("]]") | CheckSPred("#|\n\r")) ~ Character).* ~ push(sb.toString)
+  }
+
   // |, ]]
   private def GetUntilAlias: Rule1[String] = rule {
     clearSB() ~ (!(CheckS("]]") | CheckSPred("|\n\r")) ~ Character).+ ~ push(sb.toString)
-  }
-
-  def NormalLinkPath: Rule1[NA.NamuHref] = rule {
-    (clearSB() ~ (!(CheckS("]]") | CheckSPred("#|\n\r")) ~ Character).+ ~ push(sb.toString)) ~ (
-      (&("]]" | '|') ~> NA.NormalHref) |
-      ("#s-" ~ (capture(CharPredicate.Digit.+) ~> (_.toInt)).+('.') ~> NA.ParaHref) |
-      ('#' ~ GetUntilAlias ~> NA.AnchorHref) |
-      MISMATCH
-    )
   }
 
   private def LinkAlias = rule {
@@ -452,11 +477,19 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 3. Curly Brace Blocks
 
-  def SpecialBlock: Rule1[NM] = rule { SyntaxBlock | WikiBlock | HTMLBlock }
+  def SpecialBlock: Rule1[NM] = rule { SyntaxBlock | WikiBlock | HTMLBlock | FoldingBlock }
 
   def SyntaxBlock: Rule1[NM] = rule {
     ICCommandStr("{{{#!syntax") ~ WL.? ~ SingleWord ~ WL.? ~ NewLine.? ~
       capture((!"}}}" ~ ANY).*) ~ "}}}" ~> NA.SyntaxBlock
+  }
+
+  // {{{#!folding 제목 [[Markup]]}}} 등
+  def FoldingBlock: Rule1[NM] = rule {
+    ICCommandStr("{{{#!folding") ~ WL.? ~
+      LineString ~ FetchLineEnd ~
+      NamuMarkEndWith("}}}") ~ CommandStr("}}}") ~>
+      NA.FoldingBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
@@ -502,16 +535,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   var isMultiLine = false
   def RawBlock: Rule1[NM] = rule {
-    ((CommandStr("{{{") ~ WL.? ~ NewLine ~ run {
-      isMultiLine = true
-    }) |
-      (CommandStr("{{{") ~ run {
-        isMultiLine = false
-      })) ~
-      push(new SB) ~ RBResolver.* ~
-      (("\n}}}" ~ run {
-        isMultiLine = true
-      }) | "}}}") ~>
+    (
+      (CommandStr("{{{") ~ WL.? ~ NewLine ~ run { isMultiLine = true }) |
+      (CommandStr("{{{") ~ run { isMultiLine = false })
+    ) ~ push(new SB) ~ RBResolver.* ~ (("\n}}}" ~ run { isMultiLine = true }) | "}}}") ~>
       ((tsb: SB) => NA.InlineString(tsb.toString, isMultiLine))
   }
 
@@ -534,7 +561,11 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 2. Basic Blocks / One-liners
 
-  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LineString ~> NA.Redirect }
+  def MathBlock = rule {
+    ICCommandStr("<math>") ~ LineStringExceptS("</math>") ~ ICCommandStr("</math>") ~> NA.MathBlock
+  }
+
+  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
 
   def Comment = rule {
     "##" ~ LineString ~ FetchLineEnd ~> NA.Comment
@@ -591,7 +622,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def NormalChar = rule { !ch('\\') ~ ANY ~ appendSB() }
   def QuotedChar = rule { ('\\' ~ NormalChar) | ("\\\\" ~ appendSB()) }
-  def Character = rule { NormalChar | QuotedChar}
+  def Character = rule { NormalChar | QuotedChar }
   def NormalString = rule { clearSB() ~ Character.* ~ push(sb.toString) }
 
   // \ (backslash) 처리한 Char은 읽어들임
@@ -614,14 +645,14 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   private def argParse(argString: String, argDelim: Char='&', equalSign: Char='='): Map[String, String] = {
     var argMap = Map[String, String]()
-    for(arg <- argString.split(argDelim)) {
+    for (arg <- argString.split(argDelim)) {
       val argSplit = arg.split(equalSign)
       argMap += argSplit(0).trim -> (if (argSplit.length >= 2) argSplit(1).trim else "")
     }
     argMap
   }
 
-  // Seq("a=3", "X", "b=5", "c=6") => Map("a" -> "3,X", "b" -> "5", "c" -> 6)
+  // Seq("a=3//", "X", "b=5", "c=6") => Map("a" -> "3,X", "b" -> "5", "c" -> 6)
   private def argParse(args: Seq[String]): Map[String, String] = {
     var argMap = Map[String, String]()
     var newArgs = List[String]()
@@ -630,7 +661,11 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       if (arg.contains("=") || newArgs.isEmpty) {
         newArgs = arg :: newArgs
       } else {
-        newArgs = (newArgs.head + "," + arg) :: newArgs.tail
+        var headStr = newArgs.head
+        if (headStr.endsWith("//")) {
+          headStr = headStr.take(headStr.length - 2)
+        }
+        newArgs = (headStr + "," + arg) :: newArgs.tail
       }
     }
 

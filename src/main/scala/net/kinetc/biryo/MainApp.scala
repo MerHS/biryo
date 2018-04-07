@@ -16,7 +16,9 @@ object MainApp extends App {
       |usage: java -jar biryo.jar [-inline|-raw] <filename>
     """.stripMargin
 
+
   // ---- parsing arguments ----
+
 
   var filename = ""
   var useInlineCSS = false
@@ -30,6 +32,7 @@ object MainApp extends App {
     args(0) match {
       case "-inline" =>
         useInlineCSS = true
+        HTMLRenderer.useInlineCSS = useInlineCSS
       case "-raw" =>
         printRaw = true
       case _ =>
@@ -39,34 +42,39 @@ object MainApp extends App {
     filename = args(1)
   }
 
-  val namuFile = new java.io.File(filename)
-  if (!namuFile.exists)
-    throw new IllegalArgumentException(filename + "does not exist.")
-  
-  // ---- read files ----
-
-  val frameSourceFolder = "./mdict-data/frame"
-
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
-  val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
+
+  // ---- read files ----
+
+
+  val namuFile = new File(filename)
+  if (!namuFile.exists)
+    throw new IllegalArgumentException(filename + "does not exist.")
+
+  val frameSourceFolderPath = "./mdict-data"
+
+  val fsfFile = new File(frameSourceFolderPath)
+  if (fsfFile.exists && fsfFile.isDirectory) {
+    fsfFile
+      .listFiles()
+      .filter(_.getName.startsWith("틀-"))
+      .foreach(_.delete())
+  } else {
+    throw new IllegalArgumentException(frameSourceFolderPath + " folder does not exist.")
+  }
 
   val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
-  HTMLRenderer.useInlineCSS = useInlineCSS
-
-  val fsfFile = new File(frameSourceFolder)
-  if (!fsfFile.exists)
-    fsfFile.mkdir()
 
   val namuSource = Source.fromFile(filename, "UTF-8")
-  val chunks: Iterator[String] = namuSource.grouped(100000).map(_.mkString)
 
   // ---- making Actors ----
 
+
   val actorSystem = ActorSystem("namuParser")
   val printer = actorSystem.actorOf(PrinterActor.props(exportFile), "printerActor")
-  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolder), "framePrinterActor")
+  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolderPath), "framePrinterActor")
   val mdictMakers = Array(
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker1"),
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),
@@ -99,6 +107,9 @@ object MainApp extends App {
     }
   }
 
+
+  val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
+
   @tailrec
   def loop(it: Iterator[String]): Either[ParseException, Unit] = {
     if (it.hasNext) {
@@ -113,12 +124,12 @@ object MainApp extends App {
     } else p.finish().right.map(_.foreach(makeMDict))
   }
 
-  val parsed = loop(chunks)
+  val chunks: Iterator[String] = namuSource.grouped(1024 * 64).map(_.mkString) // 64KB Chunk
+  loop(chunks)
   namuSource.close()
 
   println(s"Finish! Document counts: $docCount")
 
   mdictMakers.foreach(_ ! ParseEnd)
-
 }
 

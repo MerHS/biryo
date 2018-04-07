@@ -23,9 +23,11 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
   import MDictMaker._
   import PrinterActor._
 
+  val katex = new KatexRenderer
+
   def makeMDictHtml(title: String, text: String): Unit = {
     val parser = new WikiParser(text)
-    val renderer = new HTMLRenderer
+    val renderer = new HTMLRenderer(katex)
     val postProcessor = new ASTPostProcessor(title)
 
     parser.NamuMarkRule.run() match {
@@ -46,7 +48,7 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
 
   def makeFrameJS(title: String, text: String): Unit = {
     val parser = new WikiParser(text)
-    val renderer = new FrameRenderer
+    val renderer = new FrameRenderer(katex)
     val postProcessor = new ASTPostProcessor(title)
 
     parser.NamuMarkRule.run() match {

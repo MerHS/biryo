@@ -1,14 +1,22 @@
 package net.kinetc.biryo
 
-import net.kinetc.biryo.HTMLRenderer._
+import java.time.{LocalDate, LocalDateTime}
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+import net.kinetc.biryo.HTMLRenderer.{escapeURL, _}
 
 import scala.collection.Seq
+import scala.util.{Failure, Success, Try}
 
 object NamuAST {
   type NamuMap = PartialFunction[NamuMark, NamuMark]
-  // s"\"" -> s"$q"  (Build Error???)
-  val q = '"'
+
   def toQ(s: String) = '\"' + s + '\"'
+  def toPx(value: String): String = Try(value.toDouble) match {
+    case Success(_) => s"${value}px"
+    case _ => value
+  }
 
   trait NamuMark {
     def mkString: String = ""
@@ -52,11 +60,11 @@ object NamuAST {
     val value: NamuMark
     def constructor(nm: NamuMark): NamuMark
 
-    override def postTrav(f: (NamuMark) => Unit) = {
+    override def postTrav(f: (NamuMark) => Unit): Unit = {
       value.postTrav(f); f(this)
     }
 
-    override def preTrav(f: (NamuMark) => Unit) = {
+    override def preTrav(f: (NamuMark) => Unit): Unit = {
       f(this); value.preTrav(f)
     }
 
@@ -93,11 +101,11 @@ object NamuAST {
     override def mkString =
       valueSeq.map(_.mkString).addString(new StringBuilder).toString
 
-    override def postTrav(f: (NamuMark) => Unit) = {
+    override def postTrav(f: (NamuMark) => Unit): Unit = {
       valueSeq.foreach(_.postTrav(f)); f(this)
     }
 
-    override def preTrav(f: (NamuMark) => Unit) = {
+    override def preTrav(f: (NamuMark) => Unit): Unit = {
       f(this); valueSeq.foreach(_.preTrav(f))
     }
 
@@ -118,13 +126,62 @@ object NamuAST {
     }
   }
 
+
+  ////// ------ Href Traits ------- ///////
+
+
   trait HasHref {
     val href: NamuHref
     def hrefConstructor(href: NamuHref): NamuMark
     def hrefMap(f: NamuHref => NamuHref): NamuMark = hrefConstructor(f(href))
   }
 
+  sealed trait NamuHref {
+    val value: String
+    val escapeValue = escapeURL(value)
+  }
+  // for ASTPostProcessors hrefProcessor
+  // NormalHref("val#ue") => RawHref("val%23ue")
+  case class RawHref(value: String, override val escapeValue: String) extends NamuHref
+
+  // [[value]] => NormalHref("value")
+  case class NormalHref(value: String) extends NamuHref
+
+  // [[value#s-0.1.2]] => ParaHref("value", Seq[Int](0, 1, 2))
+  case class ParaHref(value: String, paraNo: Seq[Int]) extends NamuHref
+
+  // [[value#anchor]] => AnchorHref("value", "anchor")
+  case class AnchorHref(value: String, anchor: String) extends NamuHref
+
+  // [[http://example.com]] => ExternalHref("http://example.com")
+  case class ExternalHref(value: String) extends NamuHref
+
+  // [[#1.4.1]] => SelfParaHref(Seq[Int](1,4,1))
+  case class SelfParaHref(paraNo: Seq[Int]) extends NamuHref {
+    val value: String = "#s-" + paraNo.mkString(".")
+    override val escapeValue = value
+  }
+
+  // [[#anchor]] => SelfAnchorHref("anchor")
+  case class SelfAnchorHref(anchor: String) extends NamuHref {
+    val value: String = "#" + anchor
+    override val escapeValue = "#" + escapeURL(anchor)
+  }
+
+  // [[../]] => SuperDocHref
+  case object SuperDocHref extends NamuHref {
+    val value: String = "../"
+  }
+
+  // [[/child]] => ChildDocHref("child")
+  case class ChildDocHref(childHref: NamuHref) extends NamuHref {
+    val value: String = s"/${childHref.value}"
+  }
+
+
+
   ////// ------ Paragraph ------- ///////
+
 
   /**
     * List of NamuMark Objects (`Seq[NamuMark]` Wrapper)
@@ -136,7 +193,9 @@ object NamuAST {
 
   case class ParagraphBuilder(markList: Seq[NamuMark], sb: StringBuilder) extends NamuMark
 
+
   ////// ------ Indent & Lists ------ //////
+
 
   case class ListObj(value: NamuMark, listType: ListType, indentSize: Int) extends HasNamu {
     def constructor(nm: NamuMark) = ListObj(nm, listType, indentSize)
@@ -156,7 +215,9 @@ object NamuAST {
   // A.#42 -> <ol type="A" start="42"> ~~ </ol>
   case class Type_A(offset: Int = 1) extends ListType
 
+
   ////// ----- Indent ------ //////
+
 
   case class Indent(value: NamuMark, size: Int) extends HasNamu {
     override def mkString = s"<div ${c(indentClass)}>${value.mkString}</div>"
@@ -164,15 +225,87 @@ object NamuAST {
     override def constructor(nm: NamuMark) = Indent(nm, size)
   }
 
+
+  ////// ------ Table Styles ------ //////
+
+
+  sealed trait TableAlign
+  case object AlignLeftTop extends TableAlign
+  case object AlignCenter extends TableAlign
+  case object AlignRightBottom extends TableAlign
+
+  sealed trait TableStyle
+  sealed trait TableAttr extends TableStyle {
+    def attr: String
+  }
+  sealed trait TableCSS extends TableStyle {
+    def style: String
+  }
+  sealed trait ForTable extends TableStyle {
+    def forTable: Boolean
+  }
+
+  case class BgColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
+    def style: String = s"background-color:$value"
+  }
+
+  case class RowBgColor(value: String) extends TableCSS {
+    def style: String = s"background-color:$value"
+  }
+
+  case class BorderColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
+    def style: String = s"border:2px solid $value"
+  }
+
+  case class Width(value: String, forTable: Boolean) extends TableCSS with ForTable {
+    def style: String = s"width:${toPx(value)}"
+  }
+
+  case class Height(value: String, forTable: Boolean) extends TableCSS with ForTable {
+    def style: String = s"height:${toPx(value)}"
+  }
+
+  case class Align(align: TableAlign, forTable: Boolean) extends TableCSS with ForTable {
+    def style: String =
+      if (forTable) {
+        align match {
+          case AlignCenter => "margin:0 auto"
+          case AlignRightBottom => "margin-right:0px"
+          case AlignLeftTop => "margin-left:0px" // default
+        }
+      } else {
+        align match {
+          case AlignCenter => "text-align:center"
+          case AlignRightBottom => "text-align:right"
+          case AlignLeftTop => "text-align:left" // default
+        }
+      }
+  }
+
+  case class RowSpan(value: Int, align: TableAlign) extends TableCSS with TableAttr {
+    def style: String = align match {
+      case AlignCenter => "" // default
+      case AlignRightBottom => "vertical-align:bottom"
+      case AlignLeftTop => "vertical-align:top"
+    }
+    def attr: String = s"rowspan=${toQ(value.toString)}"
+  }
+
+  case class ColSpan(value: Int) extends TableAttr {
+    def attr: String = s"colspan=${toQ(value.toString)}"
+  }
+
+
   ////// ------ Table ------ //////
+
 
   trait HasTableStyle {
     val styles: Seq[TableStyle]
 
     def attrStr: String = {
-      val attrs = styles.filter(_.isInstanceOf[TableAttr]).map(_.asInstanceOf[TableAttr])
-      if (attrs.nonEmpty) {
-        attrs.map(_.attr).addString(new StringBuilder, " ").toString
+      val attributes = styles.filter(_.isInstanceOf[TableAttr]).map(_.asInstanceOf[TableAttr])
+      if (attributes.nonEmpty) {
+        attributes.map(_.attr).addString(new StringBuilder, " ").toString
       } else ""
     }
 
@@ -196,13 +329,13 @@ object NamuAST {
         s"<div ${c(tableDivClass)}>${value.mkString}</div>"
       }
 
-    override def postTrav(f: (NamuMark) => Unit) = {
+    override def postTrav(f: (NamuMark) => Unit): Unit = {
       caption.foreach(_.postTrav(f))
       value.postTrav(f)
       f(this)
     }
 
-    override def preTrav(f: (NamuMark) => Unit) = {
+    override def preTrav(f: (NamuMark) => Unit): Unit = {
       f(this)
       caption.foreach(_.preTrav(f))
       value.preTrav(f)
@@ -259,105 +392,74 @@ object NamuAST {
     extends HasNamu with HasTableStyle {
 
     def constructor(nm: NamuMark) = TD(nm, styles)
+
     override def mkString = s"<td $attrStr $styleStr>${value.mkString}</td>"
-  }
-
-  ////// ------ Table Styles ------ //////
-
-  sealed trait TableAlign
-  case object AlignLeftTop extends TableAlign
-  case object AlignCenter extends TableAlign
-  case object AlignRightBottom extends TableAlign
-
-  sealed trait TableStyle
-  sealed trait TableAttr extends TableStyle {
-    def attr: String
-  }
-  sealed trait TableCSS extends TableStyle {
-    def style: String
-  }
-
-  sealed trait ForTable extends TableStyle {
-    def forTable: Boolean
-  }
-
-  case class BgColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
-    def style: String = s"background-color:$value"
-  }
-
-  case class RowBgColor(value: String) extends TableCSS {
-    def style: String = s"background-color:$value"
-  }
-
-  case class BorderColor(value: String, forTable: Boolean) extends TableCSS with ForTable {
-    def style: String = s"border:2px solid $value"
-  }
-
-  case class Width(value: String, forTable: Boolean) extends TableCSS with ForTable {
-    def style: String = s"width:$value"
-  }
-
-  case class Height(value: String, forTable: Boolean) extends TableCSS with ForTable {
-    def style: String = s"height:$value"
-  }
-
-  case class Align(align: TableAlign, forTable: Boolean) extends TableCSS with ForTable {
-    def style: String =
-      if (forTable) {
-        align match {
-          case AlignCenter => "margin:0 auto"
-          case AlignRightBottom => "margin-right:0px"
-          case AlignLeftTop => "margin-left:0px" // default
-        }
-      } else {
-        align match {
-          case AlignCenter => "text-align:center"
-          case AlignRightBottom => "text-align:right"
-          case AlignLeftTop => "text-align:left" // default
-        }
-      }
-  }
-  case class RowSpan(value: Int, align: TableAlign) extends TableCSS with TableAttr {
-    def style: String = align match {
-      case AlignCenter => "" // default
-      case AlignRightBottom => "vertical-align:bottom"
-      case AlignLeftTop => "vertical-align:top"
-    }
-    def attr: String = s"rowspan=${toQ(value.toString)}"
-  }
-  case class ColSpan(value: Int) extends TableAttr {
-    def attr: String = s"colspan=${toQ(value.toString)}"
   }
 
 
   ////// ------- BlockQuote ------ //////
+
 
   case class BlockQuote(value: NamuMark) extends HasNamu {
     override def mkString = s"<blockquote><div ${c(indentClass)}>${value.mkString}</div></blockquote>"
     def constructor(nm: NamuMark) = BlockQuote(nm)
   }
 
+
   ////// ------ Single Bracket FootNote / Macros ------ //////
+
+
+  case class Anchor(anchor: String) extends NamuMark {
+    override def mkString = s"<a name=${toQ(anchor)}></a>"
+  }
 
   case class FootNote(value: NamuMark, noteStr: Option[String]) extends HasNamu {
     override def mkString = noteStr match {
-      case Some(s) => s"<a name=${toQ(s"r$s")}></a><a href=${toQ(s"entry://#$s")}>[$s]</a>"
-      case None => s"<a name=${toQ("rWTF")}></a><a href=${toQ("entry://#WTF")}>[*]</a>"
+      case Some(s) => s"<a name=${toQ(s"rfn-$s")}></a><a href=${toQ(s"entry://#fn-$s")}>[$s]</a>"
+      case None => s"<a name=${toQ("rfn-WTF")}></a><a href=${toQ("entry://#fn-WTF")}>[*]</a>"
     }
     def constructor(nm: NamuMark) = FootNote(nm, noteStr)
   }
 
   case class LinkOnlyFN(noteStr: String) extends NamuMark {
-    override def mkString = s"<a href=${toQ(s"entry://#$noteStr")}>[$noteStr]</a>"
+    override def mkString = s"<a href=${toQ(s"entry://#fn-$noteStr")}>[$noteStr]</a>"
   }
 
-  // TODO: Calculate This!
-  case class AgeMacro(date: String) extends NamuMark {
-    override def mkString = s"(${date}로부터 나이)"
+  case class AgeMacro(dateText: String) extends NamuMark {
+    override def mkString =
+      Try(LocalDate.parse(dateText)) match {
+        case Success(date) => ChronoUnit.YEARS.between(date, currTime).toString
+        case Failure(_) => s"[age($dateText)]"
+    }
   }
+
+  case class PageCount(namespace: String) extends NamuMark {
+    override def mkString = s"<span ${c(s"pc-$namespaceClass")}>[$namespace 개수]</span>"
+    val namespaceClassMap = Map(
+      "문서" -> "dc", "파일" -> "fl", "분류" -> "dt",
+      "틀" -> "fr", "나무위키" -> "nm", "사용자" -> "us"
+    )
+    val namespaceClass = namespaceClassMap.get(namespace) match {
+      case Some(classId) => classId
+      case None => "al"
+    }
+  }
+
+  case class DDay(dateText: String) extends NamuMark {
+    override def mkString = {
+      Try(LocalDate.parse(dateText)) match {
+        case Success(date) =>
+          val day = ChronoUnit.DAYS.between(date, currTime)
+          if (day >= 0) s"+$day"
+          else s"-$day"
+        case Failure(_) => s"[dday($dateText)]"
+      }
+    }
+  }
+
   case object DateMacro extends NamuMark {
-    // do not calculate it for MDict
-    override def mkString = "[현재 시간]"
+    // calculate it based by the parsed time of json file
+    override def mkString = currTime.format(dateMacroFormatter)
   }
 
   case object FootNoteList extends NamuMark {
@@ -370,12 +472,10 @@ object NamuAST {
 
   case class Include(rawHref: String, args: Map[String, String]) extends NamuMark {
     override def mkString = {
-      val argString = args.mkString(", ").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-      s"[include(<a href=${toQ(s"entry://$rawHref")}>$rawHref</a>), args:$argString)]"
+      val argString = escapeHTML(args.mkString(", "))
+      val href = escapeURL(rawHref)
+      s"[include(<a href=${toQ(s"entry://$href")}>$rawHref</a>), args:$argString)]"
     }
-  }
-  case class Anchor(anchor: String) extends NamuMark {
-    override def mkString = s"<a name=${toQ(anchor)}></a>"
   }
 
   case class YoutubeLink(id: String, args: Map[String, String]) extends NamuMark {
@@ -383,7 +483,9 @@ object NamuAST {
     override def mkString = s"<a href=${toQ(s"entry://https://www.youtube.com/watch?v=$id")}>[유튜브 링크]</a>"
   }
 
+
   ////// ------ Double Bracket Links ------ //////
+
 
   // [[파일:$href|$htmlOption]]
   case class FileLink(href: String, htmlOption: Map[String, String]) extends NamuMark {
@@ -393,28 +495,43 @@ object NamuAST {
   // [[분류:$docType]]
   case class DocType(docType: String) extends NamuMark {
     override def mkString = s"<div ${c(docTypeClass)}>" +
-      s"분류: <a href=${toQ(s"entry://분류:$docType")}>$docType</a></div>"
+      s"분류: <a $anchorClass href=${toQ(s"entry://분류:${escapeURL(docText)}")}>$docText</a></div>"
+
+    val isBlur = docType.endsWith("#blur")
+    val docText = if (isBlur) docType.take(docType.length - 5) else docType
+    private val anchorClass = if (isBlur) c(blurClass) else ""
   }
 
   // [[$href|$alias]] -> href will be changed to NormalHref after the postprocessing
+  // so this should not be escape punctuations like " " -> "%20"
   case class DocLink(href: NamuHref, valueSeq: Option[NamuMark])
     extends HasNamuSeq[NamuMark, Option[NamuMark]](valueSeq) with HasHref {
     override def mkString = valueSeq match {
-      case Some(nm) => s"<a href=${toQ(href.value)}>${nm.mkString}</a>"
-      case None => s"<a href=${toQ(href.value)}>${href.value}</a>"
+      case Some(nm) => s"<a href=${toQ(href.escapeValue)}>${nm.mkString}</a>"
+      case None => s"<a href=${toQ(href.escapeValue)}>${href.value}</a>"
     }
 
     def constructorSeq(nm: Option[NamuMark]) = DocLink(href, nm)
     def hrefConstructor(href: NamuHref): NamuMark = DocLink(href, valueSeq)
   }
 
+
   ////// ------ Curly Brace Blocks ------ //////
+
 
   // {{{#!syntax $language $value}}}
   case class SyntaxBlock(language: String, value: String) extends NamuMark {
     override def mkString = s"<pre><code>$value</code></pre>"
   }
-  // {{{$!wiki style="$style" $value}}}
+  // {{{#!folding $title\n $value}}}
+  case class FoldingBlock(title: String, value: NamuMark) extends NamuMark {
+    override def mkString =
+      s"<dl ${c(foldingClass)}>" +
+        s"<dt>$title</dt>" +
+        s"<dd>${value.mkString}</dd></dl>"
+  }
+
+  // {{{#!wiki style="$style" $value}}}
   case class WikiBlock(style: String, value: NamuMark) extends NamuMark {
     override def mkString = s"<div style=${toQ(style)}>${value.mkString}</div>"
   }
@@ -434,7 +551,11 @@ object NamuAST {
     def constructor(nm: NamuMark) = ColorBlock(nm, color)
   }
 
+
   ////// ------ One-Liners ------- //////
+
+  // <math>abcd</math> -> MathBlock("abcd")
+  case class MathBlock(value: String) extends NamuMark
 
   // ##Comment -> Comment("Comment")
   case class Comment(value: String) extends NamuMark
@@ -448,14 +569,16 @@ object NamuAST {
   // Post Process Only AST Node
   case class Headings(value: NamuMark, no: Seq[Int]) extends HasNamu {
     override def mkString = {
-      val hsize = if (no.length <= 5) no.length + 1 else 6
+      val hsize = if (no.lengthCompare(5) <= 0) no.length + 1 else 6
       val hno = no.mkString(".")
-      s"<h$hsize><a name=${toQ(s"s-$hno")}><a href=$q#headList$q>$hno. </a></a>${value.mkString}</h$hsize>"
+      s"<h$hsize><a name=${toQ(s"s-$hno")}><a href=${toQ(s"#$tocReference")}>$hno. </a></a>${value.mkString}</h$hsize>"
     }
     def constructor(nm: NamuMark) = Headings(nm, no)
   }
 
+
   ////// ------ Span Marks ------ //////
+
 
   sealed trait SpanMark
   case class Strike(value: NamuMark) extends HasNamu with SpanMark {
@@ -483,11 +606,14 @@ object NamuAST {
     def constructor(nm: NamuMark) = Italic(nm)
   }
 
-  case class Redirect(value: String) extends NamuMark {
-    override def mkString = s"<a href=${toQ(s"entry://$value")}>리다이렉트:$value</a>"
+  case class Redirect(href: NamuHref) extends NamuMark with HasHref {
+    def hrefConstructor(href: NamuHref): NamuMark = Redirect(href)
+    override def mkString = s"<a href=${toQ(href.escapeValue)}>리다이렉트:${href.value}</a>"
   }
 
+
   ////// ------ Basic Blocks ------- //////
+
 
   // HTML Unescaped String {{{#!html ... }}}
   case class HTMLString(value: String) extends NamuMark {
@@ -511,42 +637,19 @@ object NamuAST {
     override def mkString = "<hr>"
   }
 
-  ////// ------ href Trait ------ //////
 
-  sealed trait NamuHref {
-    val value: String
-  }
-  // [[value]] => NormalHref("value")
-  case class NormalHref(value: String) extends NamuHref
-  // [[value#s-0.1.2]] => ParaHref("value", Seq[Int](0, 1, 2))
-  case class ParaHref(value: String, paraNo: Seq[Int]) extends NamuHref
-  // [[value#anchor]] => AnchorHref("value", "anchor")
-  case class AnchorHref(value: String, anchor: String) extends NamuHref
-  // [[http://example.com]] => ExternalHref("http://example.com")
-  case class ExternalHref(value: String) extends NamuHref
-  // [[#1.4.1]] => SelfParaHref(Seq[Int](1,4,1))
-  case class SelfParaHref(paraNo: Seq[Int]) extends NamuHref {
-    val value: String = "#s-" + paraNo.mkString(".")
-  }
-  // [[#anchor]] => SelfAnchorHref("anchor")
-  case class SelfAnchorHref(anchor: String) extends NamuHref {
-    val value: String = "#" + anchor
-  }
-  // [[../]] => SuperDocHref
-  case object SuperDocHref extends NamuHref {
-    val value: String = "../"
-  }
-  // [[/child]] => ChildDocHref("child")
-  case class ChildDocHref(childHref: NamuHref) extends NamuHref {
-    val value: String = s"/${childHref.value}"
-  }
+  ////// ------ Private Utility Functions ------ //////
+
+
+  private val currTime = LocalDateTime.now()
+  private val dateMacroFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd kk:mm:ss")
 
   // 최대한 Paragraph라는 Seq[NamuMark] Wrapper를 줄이기
   private[biryo] def pbResolver(pb: ParagraphBuilder): NamuMark = {
     if (pb.markList.isEmpty) {
       RawString(pb.sb.toString)
     } else if (pb.sb.isEmpty) {
-      if (pb.markList.length == 1)
+      if (pb.markList.lengthCompare(1) == 0)
         pb.markList.head
       else
         Paragraph(pb.markList)

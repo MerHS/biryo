@@ -1,5 +1,5 @@
 
-import net.kinetc.biryo.{ASTPostProcessor, HTMLRenderer, NamuAST, WikiParser}
+import net.kinetc.biryo._
 import org.parboiled2._
 import org.specs2.mutable.Specification
 
@@ -14,6 +14,16 @@ class WikiParserSpec extends Specification {
   val NA = NamuAST
 
   "WikiParser" should {
+    "let basic Utility Functions do" in {
+      NA.toQ("test") === "\"test\""
+
+      NA.toPx("123") === "123px"
+      NA.toPx("-1.5") === "-1.5px"
+      NA.toPx("100%") === "100%"
+      NA.toPx("test") === "test"
+    }
+
+
     "parse Basic Characters" in {
       var parser = new WikiParser("test")
       parse(parser, parser.FetchChar.run()) === 't'
@@ -46,6 +56,7 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.LineString.run()) == "make one"
     }
 
+
     "parse normal paragraphs" in {
       parseAll("test paragraph 1.\ntest paragraph 2.\ntest paragraph 3.") === paraMaker (
         RS("test paragraph 1."), NA.BR,
@@ -53,6 +64,7 @@ class WikiParserSpec extends Specification {
         RS("test paragraph 3.")
       )
     }
+
 
     "parse One-Liners" in {
       var parser = new WikiParser("##Comment ##Check")
@@ -72,18 +84,21 @@ class WikiParserSpec extends Specification {
         paraMaker(NA.Strike(RS("")), NA.Strike(RS("")),NA.Strike(RS("")))
       )
 
-      parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test ", false), 2)
+      parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test ", isMultiLine=false), 2)
       parseAll("== {{{ test }}} ==\n") ===
-        paraMaker(NA.RawHeadings(IS(" test ", false), 2), NA.BR)
+        paraMaker(NA.RawHeadings(IS(" test ", isMultiLine=false), 2), NA.BR)
       parseAll("=== {{{ test }}} ==") ===
-        paraMaker(RS("=== "), IS(" test ", false), RS(" =="))
+        paraMaker(RS("=== "), IS(" test ", isMultiLine=false), RS(" =="))
 
       parseAll("= {{{ test }}} ==") ===
-        paraMaker(RS("= "), IS(" test ", false), RS(" =="))
+        paraMaker(RS("= "), IS(" test ", isMultiLine=false), RS(" =="))
 
       parseAll("== {{{ test }}} ==5") ===
-        paraMaker(RS("== "), IS(" test ", false), RS(" ==5"))
+        paraMaker(RS("== "), IS(" test ", isMultiLine=false), RS(" ==5"))
+
+      parseAll("<math>asdf</math>") === NA.MathBlock("asdf")
     }
+
 
     "parse Basic Blocks" in {
       var parser = new WikiParser("--strike--")
@@ -118,18 +133,20 @@ class WikiParserSpec extends Specification {
         )
     }
 
+
     "parse Curly Brace - RawBlock" in {
       var parser = new WikiParser("{{{{\\{}}}}}")
       parse(parser, parser.RawBlock.run()) === IS("{\\{}}", isMultiLine=false)
-      parseAll("{{{{\\{}}}}}") === IS("{\\{}}", false)
+      parseAll("{{{{\\{}}}}}") === IS("{\\{}}", isMultiLine=false)
 
       parser = new WikiParser("block{\\{{{{ {\\{{te\nst}}} }}}")
-      parse(parser, parser.LineTerm.run()) === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", false))
-      parseAll("block{\\{{{{ {\\{{te\nst}}} }}}") === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", false))
+      parse(parser, parser.LineTerm.run()) === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", isMultiLine=false))
+      parseAll("block{\\{{{{ {\\{{te\nst}}} }}}") === paraMaker(RS("block{{"), IS(" {\\{{te\nst}}} ", isMultiLine=false))
 
       parseAll("{{{  \n this is Multi Liners\n}}}") ===
         IS(" this is Multi Liners", isMultiLine=true)
     }
+
 
     "parse Curly Brace - SpanBlock" in {
       var parser = new WikiParser("{{{+3 Plus3}}}")
@@ -149,19 +166,20 @@ class WikiParserSpec extends Specification {
       parseAll("{{{#F14 Tomcat}}}") === NA.ColorBlock(RS("Tomcat"), "#F14")
     }
 
+
     "parse Curly Brace - Special Blocks" in {
-      val demoTeul = """{{{#!wiki style="border:1px solid gray;border-top:5px solid orange;padding:12px"
+      val demoFrame = """{{{#!wiki style="border:1px solid gray;border-top:5px solid orange;padding:12px"
                        |{{{+1 Plus Block! }}}[br][br]this is String}}}""".stripMargin
-      val demoTeulParsed = NA.WikiBlock(
+      val demoFrameParsed = NA.WikiBlock(
         "border:1px solid gray;border-top:5px solid orange;padding:12px",
         paraMaker(
           NA.SizeBlock(RS("Plus Block! "), 1),
           NA.BR, NA.BR, RS("this is String")
         )
       )
-      var parser = new WikiParser(demoTeul)
-      parse(parser, parser.WikiBlock.run()) === demoTeulParsed
-      parseAll(demoTeul) === demoTeulParsed
+      var parser = new WikiParser(demoFrame)
+      parse(parser, parser.WikiBlock.run()) === demoFrameParsed
+      parseAll(demoFrame) === demoFrameParsed
 
       val demoSyntax =
         """{{{#!Syntax scala
@@ -179,7 +197,14 @@ class WikiParserSpec extends Specification {
       parser = new WikiParser(demoSyntax)
       parse(parser, parser.SyntaxBlock.run()) === demoSyntaxParsed
       parseAll(demoSyntax) === demoSyntaxParsed
+
+      val testFolding =
+        """{{{#!folding 접기
+          |【내용 1】}}}""".stripMargin
+      parser = new WikiParser(testFolding)
+      parseAll(testFolding) === NA.FoldingBlock("접기", RS("【내용 1】"))
     }
+
 
     "parse Links" in {
       var parser = new WikiParser("[[Simple Link]]")
@@ -199,6 +224,9 @@ class WikiParserSpec extends Specification {
 
       parser = new WikiParser("[[Basic#anchor?]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.AnchorHref("Basic", "anchor?"), None)
+
+      parser = new WikiParser("[[C\\#]]")
+      parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("C#"), None)
 
       parseAll("More is Better: [[Li\\]]nk#s-11.3|\\|\\]][[#s-anchor|in Link]]]]\n") ===
         paraMaker(
@@ -237,7 +265,12 @@ class WikiParserSpec extends Specification {
 
       parser = new WikiParser("[[분류:나무 텍스트]]")
       parse(parser, parser.DocType.run()) === NA.DocType("나무 텍스트")
+
+      parser = new WikiParser("[[분류:나무 텍스트#blur]]")
+      val blurMark = parse(parser, parser.DocType.run()).asInstanceOf[NA.DocType]
+      blurMark.docText === "나무 텍스트"
     }
+
 
     "parse Macros" in {
       parseAll("[각주]  \n\n각주[br]테스트") === paraMaker(
@@ -255,12 +288,31 @@ class WikiParserSpec extends Specification {
       )
 
       parseAll("[anchor(test)]") === NA.Anchor("test")
+
       parseAll("[include(틀:테스트,link=http://example.com)]") === NA.Include(
         "틀:테스트", Map("link" -> "http://example.com")
       )
+
+      parseAll("[include(틀:테스트,link=xa,test=2342,re=af//,fe,12=34)]") === NA.Include(
+        "틀:테스트", Map(
+          "link" -> "xa",
+          "test" -> "2342",
+          "re" -> "af,fe",
+          "12" -> "34"
+        )
+      )
+
+      parseAll("[pagecount]") === NA.PageCount("")
+      parseAll("[pagecount(문서)]") === NA.PageCount("문서")
+      parseAll("[br]") === NA.BR
+      parseAll("[date]") === NA.DateMacro
+      parseAll("[datetime]") === NA.DateMacro
+      parseAll("[dday(2015-12-34)]") === NA.DDay("2015-12-34")
+      parseAll("[age(2015-12-34)]") === NA.AgeMacro("2015-12-34")
     }
 
-    "parse FootNote" in {
+
+    "parse FootNotes" in {
       var parser = new WikiParser("[* Simple '''FootNote''']")
       parse(parser, parser.FootNote.run()) ===
         NA.FootNote(paraMaker(RS("Simple "), NA.Bold(RS("FootNote"))), None)
@@ -277,11 +329,14 @@ class WikiParserSpec extends Specification {
         NA.FootNote(paraMaker(RS("footnote in "), NA.FootNote(RS("footnote"), None)), None)
     }
 
-    "parse BlockQuote" in {
+    "parse BlockQuotes" in {
       parseAll(">default BlockQuote") ===
         NA.BlockQuote(RS("default BlockQuote"))
 
-      parseAll(">multiple\n>and> Multiple\n>>realMultiple") ===
+      parseAll(
+        """>multiple
+          |>and> Multiple
+          |>>realMultiple""".stripMargin) ===
         NA.BlockQuote(paraMaker(
           RS("multiple"), NA.BR,
           RS("and> Multiple"), NA.BR,
@@ -291,10 +346,13 @@ class WikiParserSpec extends Specification {
 
     "parse TableCSS" in {
       var parser = new WikiParser("<table bordercolor=#FFEECC>")
-      parse(parser, parser.TableCSS.run()) === NA.BorderColor("#FFEECC", forTable = true)
+      parse(parser, parser.TableCSS.run()) === NA.BorderColor("#FFEECC", forTable=true)
 
       parser = new WikiParser("<TableBgCOlor=Ruby>")
       parse(parser, parser.TableCSS.run()) === NA.BgColor("Ruby", forTable=true)
+
+      parser = new WikiParser("<rowbgcolor=yellow>")
+      parse(parser, parser.TableCSS.run()) === NA.RowBgColor("yellow")
 
       parser = new WikiParser("<table  align=\"Right\">")
       parse(parser, parser.TableCSS.run()) === NA.Align(NA.AlignRightBottom, forTable=true)
@@ -327,19 +385,13 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.TableCSS.run()) === NA.BgColor("WhiteBalance", forTable=false)
     }
 
-    "parse Basic Table" in {
+    "parse Basic Tables" in {
       var parser = new WikiParser("||Test||")
       parse(parser, parser.TD.run()) === NA.TD(RS("Test"), List[NA.TableStyle]())
 
       parser = new WikiParser("||Test||")
-      println(parse(parser, parser.TDWithCaption.run()))
-
-      parser = new WikiParser("||Test||")
       parse(parser, parser.TR.run()) ===
         NA.TR(List(NA.TD(RS("Test"), List[NA.TableStyle]())), List[NA.TableStyle]())
-
-      parser = new WikiParser("||Test||")
-      println(parse(parser, parser.TRWithCaption.run()))
 
       parser = new WikiParser("||Test||")
       parse(parser, parser.Table.run()) ===
@@ -349,26 +401,71 @@ class WikiParserSpec extends Specification {
           None)
     }
 
+    "parse Folding in Table with Indent" in {
+      val testFolding =
+        """ * 기본
+          | ||결과||{{{#!folding 접기
+          |【내용 1】}}}||""".stripMargin
+      val testFoldingParsed = NA.Indent(paraMaker(
+        RS("* 기본"), NA.TR(List(
+          NA.TD(RS("결과"), List[NA.TableStyle]()),
+          NA.TD(NA.FoldingBlock("접기", RS("【내용 1】")), List[NA.TableStyle]())
+        ), List[NA.TableStyle]())
+      ), 1)
+
+      val parser = new WikiParser(testFolding)
+      parseAll(testFolding) === testFoldingParsed
+    }
+
     "parse from file - Indent / Lists" in {
       1 === 1
     }
   }
 
   "HTMLRenderer" should {
-    "render Link" in {
+    "render Links" in {
       renderAll("test", "[[Simple Link]]") === """<a href="entry://Simple Link">Simple Link</a>"""
+
+      renderAll("test/test2", "[[../]]") ===
+        """<a href="entry://test">test</a>"""
+
+      renderAll("test/test2", """[[/test3]]""") ===
+        """<a href="entry://test/test2/test3">test/test2/test3</a>"""
     }
 
-    "render NamuMark Original Document file" in {
+    "parse escaped Links" in {
+      renderAll("test", """[[\\]]""") ===
+        """<a href="entry://%5C">\</a>"""
+
+      renderAll("test", """[[Fate/Grand Order/서번트/랜서/블라드 3세[EXTRA\]]]""") ===
+        """<a href="entry://Fate/Grand Order/서번트/랜서/블라드 3세[EXTRA]">Fate/Grand Order/서번트/랜서/블라드 3세[EXTRA]</a>"""
+
+      renderAll("test", """[[S\#ARP]]""") ===
+        """<a href="entry://S%23ARP">S#ARP</a>"""
+
+      renderAll("test", """[[S#ARP#]]""") ===
+        """<a href="entry://S%23ARP">S#ARP</a>"""
+
+      renderAll("test", """[[\#1 To Infinity]]""") ===
+        """<a href="entry://%231 To Infinity">#1 To Infinity</a>"""
+
+      renderAll("test", """[[#1 To Infinity#s-2]]""") ===
+        """<a href="entry://%231 To Infinity#s-2">#1 To Infinity</a>"""
+
+    }
+
+    "render NamuMark Document file without Exception" in {
       val namuHelpTxt = Source.fromFile("src/test/namu_help.txt").mkString
       renderAll("namu_help", namuHelpTxt).isInstanceOf[String] === true
     }
   }
 
+  private val katex = new KatexRenderer
+
   private def renderAll(title: String, markText: String): String = {
     val parser = new WikiParser(markText)
     val ast = parse(parser, parser.NamuMarkRule.run())
-    val renderer = new HTMLRenderer
+    val renderer = new HTMLRenderer(katex)
     val result = new ASTPostProcessor(title).postProcessAST(ast.asInstanceOf[NM])
     renderer.mainBody(result)
   }

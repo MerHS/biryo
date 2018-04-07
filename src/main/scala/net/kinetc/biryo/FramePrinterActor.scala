@@ -22,7 +22,7 @@ class FramePrinterActor(path: String) extends Actor {
   def receive = {
     case MakeJSFile(title, text) =>
       var newTitle = title.replaceAll(" ", "_")
-      newTitle = HTMLRenderer.escapePathStr(newTitle)
+      newTitle = "틀-" + HTMLRenderer.escapePathStr(newTitle)
       val pathFile: PrintWriter = new PrintWriter(path + "/" + newTitle + ".js", "UTF-8")
       pathFile.println("var x='" + HTMLRenderer.escapeJSStr(text) + "\';")
       pathFile.close()

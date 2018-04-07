@@ -5,7 +5,7 @@ import net.kinetc.biryo.NamuAST._
 /**
   * Created by KINETC on 2017-08-15.
   */
-class FrameRenderer extends HTMLRenderer {
+class FrameRenderer(private val katex: KatexRenderer) extends HTMLRenderer(katex) {
 
   import HTMLRenderer._
 

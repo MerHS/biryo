@@ -64,12 +64,17 @@
 * 16\. 매크로
 	* 16.1. date (datetime) (`DateMacro`)
 	* 16.2. br (`BR`)
+	* 16.3. pagecount (`PageCount`)
 	* 16.4. include (`Include`)
 	* 16.5. 목차 (`TableOfContents`)
 	* 16.6. 각주 (`FootNoteList`)
 	* 16.7. 나이 (`AgeMacro`)
+	* 16.8. 남은 날 (`DDay`)
 * 17\. 테이블(표) (`TableWrapper`)
 	* 테이블의 각 항목은 `Table` `TR`, `TD`와 같은 HTML요소, `TableAlign`, `TableStyle`등의 CSS 요소로 구현되어 있음
+* 18\. 수식
+    * KaTeX로 구현
+* 19\. 접기
 * 20\. HTML (`HTMLString`)
 	* 20.1. 틀 (mdd에 저장, 원본 또한 mdx에서 볼 수 있음)
 * 21\. 문법 강조 (`SyntaxBlock`) (not-rendered)
@@ -81,8 +86,7 @@
   * MDict에 자동 리다이렉트 기능이 구현되어있으나, 앵커 사용 불가 및 디버깅 용도 등으로 인해 해당 링크를 띄우는 식으로만 구현하였습니다. 
 * 이미지, 동영상 표시
   * 이미지를 비롯한 외부 파일 링크는 모두 해당 표제어나 URL로 가는 텍스트 링크로 구현되어있습니다. 
-* `[date]`, `[age]`등의 매크로 표시 
-  * 파싱은 하나 표시는 되지 않습니다. JS로 구현할 계획
+* 16\. 매크로 중 시간과 관련된 값은 파싱한 날짜를 기준으로 처리된다.
 * 16.4. include (틀 제외)
   * 현재 틀은 외부 JS 형식으로 변환하여 mdd에 저장하여 읽고있기 때문에 mdx-only 버전에선 렌더링되지 않습니다.
 * 21\. 문법 강조는 현재 4.4 인라인 코드와 같은 방식으로 렌더링됨
@@ -93,18 +97,13 @@
   * 구현 계획 없음
 * 10\. 리스트
   * 들여쓰기는 구현되어 있으므로 리스트 첨자를 제외한 부분은 거의 비슷하게 보입니다.
-* 16.3. pagecount
-* 16.3.1. 네임스페이스를 지정한 pagecount
-* 16.8. 남은 날 (dday)
-* 18\. 수식
- Katex로 구현할까 고민 중
-* 19\. 접기
+
 
 ## How to build an Executable JAR
 
 1. [JDK](http://www.oracle.com/technetwork/java/javase/downloads/index.html) 설치
   * 환경변수 (PATH) 설정이 되어있지 않아 java 명령어가 작동하지 않으면 같이 해줍니다. 
-2. [sbt](https://github.com/MerHS/biryo) 설치 (Scala 빌드를 위한 툴입니다.)
+2. [sbt](https://www.scala-sbt.org/) 설치 (Scala 빌드를 위한 툴입니다.)
 
 다음부터는 cmd, powershell, bash등 원하는 쉘에서 
 
@@ -129,7 +128,7 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 
 0. jar파일이 있는 경로에 [mdict-data](https://github.com/MerHS/biryo/tree/master/mdict-data) 폴더를 넣습니다. 스타일링 및 JS파일을 위해 반드시 필요합니다. 
 1. [나무위키 데이터베이스 덤프](https://namu.wiki/w/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4:%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84?from=%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4%20%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84)를 받고 압축을 풀어 jar파일과 같은 경로에 넣습니다. (이름이 namuwiki.json 파일이라고 가정)
-2. `java -Dfile.encoding=UTF-8 -jar biryo.jar namuwiki.json`
+2. `java -Dfile.encoding=UTF8 -jar biryo.jar namuwiki.json`
   * mdx only 버전용 HTML을 만들고 싶으면 `java -Dfile.encoding=UTF-8 -jar biryo.jar -inline namuwiki.json` 
 3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 MdxBuilder의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
   * mdx only 용은 Data에 아무것도 넣지 않습니다.

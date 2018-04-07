@@ -1,6 +1,7 @@
 package net.kinetc.biryo
 
 import net.kinetc.biryo.NamuAST._
+import net.kinetc.biryo.HTMLRenderer._
 
 /**
   * Created by KINETC on 2017-07-28.
@@ -17,15 +18,14 @@ class ASTPostProcessor(val title: String) {
   }
 
   // TODO: List / 다중 SpanMark 앞뒤공백 제거
-  // TODO: DocType 모으기
   protected def postProcessor: NamuMap = {
     /// ----- Href Resolver -----
     case DocLink(href: ExternalHref, None) =>
       DocLink(NormalHref(href.value), Some(NamuAST.RawString("외부링크")))
-    case DocLink(href: NamuHref, None) =>
-      DocLink(href, Some(NamuAST.RawString(href.value))).hrefMap(hrefProcessor)
+
     case withHref: HasHref =>
       withHref.hrefMap(hrefProcessor)
+
     /// ----- Heading Resolver -----
     case RawHeadings(v, size) =>
       val realSize = size - hMin
@@ -36,6 +36,7 @@ class ASTPostProcessor(val title: String) {
         currHeading ++= Seq.fill(realSize - currHeading.length + 1)(1)
       }
       Headings(v, currHeading)
+
     case HTMLString(s) if s.contains("<span") && !s.contains("</span>") =>
       HTMLString(s + "</span>")
   }
@@ -86,17 +87,17 @@ class ASTPostProcessor(val title: String) {
   // change all NamuHrefs to NormalHref except ExternalHref
   protected def hrefProcessor(href: NamuHref): NamuHref = {
     href match {
-      case NormalHref(v) => NormalHref(s"entry://$v")
-      case ParaHref(v, paraNo) => NormalHref(s"entry://$v#s-${paraNo.mkString(".")}")
-      case AnchorHref(value, anchor) => NormalHref(s"entry://$value#$anchor")
-      case SelfParaHref(_) | SelfAnchorHref(_) => NormalHref(s"entry://${href.value}")
+      case NormalHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
+      case ParaHref(value, paraNo) => RawHref(value, s"entry://${href.escapeValue}#s-${paraNo.mkString(".")}")
+      case AnchorHref(value, anchor) => RawHref(value, s"entry://${href.escapeValue}#${escapeURL(anchor)}")
+      case SelfParaHref(_) | SelfAnchorHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
       case SuperDocHref =>
         val newHref =
           if (title.contains('/')) title.split("/").init.mkString("/") else title
-          NormalHref(s"entry://$newHref")
+        RawHref(newHref, s"entry://${escapeURL(newHref)}")
       case ChildDocHref(h) =>
         val childVal = hrefProcessor(h).value.replaceAll("entry://", "")
-        NormalHref(s"entry://$title/$childVal")
+        RawHref(s"$title/$childVal", s"entry://${escapeURL(title)}/$childVal")
       case _ => href
     }
   }
