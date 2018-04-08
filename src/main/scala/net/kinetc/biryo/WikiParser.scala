@@ -246,7 +246,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       }
       )
   }
-  
+
   def FetchTableRawString: Rule1[String] = rule {
     capture((!CommandStr("||") ~ ANY).*) ~ !EOI
   }

@@ -117,7 +117,8 @@ class HTMLRenderer(private val katex: KatexRenderer) {
       case DocLink(href: ExternalHref, alias) => HTMLString(externalLinkRenderer(href, alias))
       case InlineString(s, i) => InlineString(escapeHTML(s), i)
       case HTMLString(s) => HTMLString(deleteExternalTag(s))
-
+      case Include("틀:-", _) =>
+        HTMLString("<div style=\"clear:both\"></div>")
       case Include("틀:루비", args) =>
         val value = escapeHTML(args.getOrElse("글자", ""))
         val ruby = escapeHTML(args.getOrElse("루비", ""))
