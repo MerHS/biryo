@@ -2,20 +2,20 @@ package net.kinetc.biryo
 
 import java.io.PrintWriter
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 
 /**
   * Created by KINETC on 2017-08-15.
   */
 object FramePrinterActor {
-  def props(path: String): Props = Props(new FramePrinterActor(path))
+  def props(path: String, exitActor: ActorRef): Props = Props(new FramePrinterActor(path, exitActor))
 
   final case class MakeJSFile(title: String, text: String)
-
+  case object CloseFPA
 }
 
 
-class FramePrinterActor(path: String) extends Actor {
+class FramePrinterActor(path: String, exitActor: ActorRef) extends Actor {
 
   import FramePrinterActor._
 
@@ -26,5 +26,7 @@ class FramePrinterActor(path: String) extends Actor {
       val pathFile: PrintWriter = new PrintWriter(path + "/" + newTitle + ".js", "UTF-8")
       pathFile.println("var x='" + HTMLRenderer.escapeJSStr(text) + "\';")
       pathFile.close()
+    case CloseFPA =>
+      exitActor ! ExitActor.Exit
   }
 }

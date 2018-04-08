@@ -19,13 +19,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   var parserSuccess = false
 
-  def SubParser = rule {
-    (MATCH ~> ((s: String) =>
-      new WikiParser(s).NamuMarkRule.run() match {
-        case Success(result) => parserSuccess = true; result
-        case Failure(e) => e.printStackTrace(); parserSuccess = false; NA.BR
-      })) ~ test(parserSuccess)
-  }
+
 
   // Rule 0. Main Rule
 
@@ -130,6 +124,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
       (cursorChar: @switch) match {
         case '\n' | '\r' | '\uFFFF' => MISMATCH
         case '{' => SpecialBlock | SpanBlock | RawBlock | WordBox
+        case '[' => OtherMacro | FootNote | LinkOnlyFN | Link | FootNoteList
         case '_' => Underline
         case '-' => StrikeMinus
         case '~' => StrikeTilde
@@ -137,7 +132,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case ',' => Sub
         case '_' => Underline
         case '\'' => Bold | Italic
-        case '[' => OtherMacro | FootNote | LinkOnlyFN | Link | FootNoteList
         case _ => MISMATCH
       }
     }
@@ -185,6 +179,14 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // Rule 8. Table (Multi-Liner)
 
+  def SubParser = rule {
+    (MATCH ~> ((s: String) =>
+      new WikiParser(s).NamuMarkRule.run() match {
+        case Success(result) => parserSuccess = true; result
+        case Failure(e) => e.printStackTrace(); parserSuccess = false; NA.BR
+      })) ~ test(parserSuccess)
+  }
+
   def Table: Rule1[NM] = rule {
     TableHeader ~
       (
@@ -231,18 +233,22 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def FetchTableString = rule {
     FetchTableRawString ~> ((tsl: List[NA.TableStyle], s: String) =>
-      if (s.length == 0) {
+      if (s.isEmpty) {
         tsl :: s :: HNil
-      } else if (s.length >= 2 && s(0) == ' ' && s(s.length - 1) == ' ') {
+      } else if (s.length >= 2 && s.head == ' ' && s.last == ' ') {
         (NA.Align(NA.AlignCenter, forTable = false) :: tsl) :: s.substring(1, s.length - 1) :: HNil
-      } else if (s(0) == ' ') {
+      } else if (s.head == ' ') {
         (NA.Align(NA.AlignRightBottom, forTable = false) :: tsl) :: s.substring(1) :: HNil
-      } else if (s(s.length - 1) == ' ') {
+      } else if (s.last == ' ') {
         (NA.Align(NA.AlignLeftTop, forTable = false) :: tsl) :: s.substring(0, s.length - 1) :: HNil
       } else {
         tsl :: s :: HNil
       }
       )
+  }
+  
+  def FetchTableRawString: Rule1[String] = rule {
+    capture((!CommandStr("||") ~ ANY).*) ~ !EOI
   }
 
   def FetchTableEnd: Rule0 = rule {
@@ -251,10 +257,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def CheckTableEnd: Rule0 = rule {
     &(CommandStr("||") ~ ch('|').* ~ CheckWLLineEnd)
-  }
-
-  def FetchTableRawString: Rule1[String] = rule {
-    capture((!CommandStr("||") ~ ANY).*) ~ !EOI
   }
 
   def FetchTDColSpan: Rule1[List[NA.TableStyle]] = rule {
@@ -440,17 +442,23 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   private def NormalLinkPath: Rule1[NA.NamuHref] = rule {
-    GetUntilAliasOrHash.+('#') ~ &("]]" | '|') ~> ((link: Seq[String]) => {
-      if (link.last.startsWith("s-")) {
-        Try(link.last.substring(2).split("\\.").map(_.toInt)) match {
-          case Success(paraNo) =>
-            NA.ParaHref(link.init.mkString("#"), paraNo)
-          case _ =>
-            LinkToAnchorOrNormalHref(link)
-        }
-      } else
-        LinkToAnchorOrNormalHref(link)
-    })
+    GetUntilAliasOrHash.+('#') ~ &("]]" | '|') ~> resolveLinkSeq _
+  }
+
+  private def LineEndLinkPath: Rule1[NA.NamuHref] = rule {
+    GetUntilAliasOrHash.+('#') ~ CheckLineEnd ~> resolveLinkSeq _
+  }
+
+  private def resolveLinkSeq(link: Seq[String]) = {
+    if (link.last.startsWith("s-")) {
+      Try(link.last.substring(2).split("\\.").map(_.toInt)) match {
+        case Success(paraNo) =>
+          NA.ParaHref(link.init.mkString("#"), paraNo)
+        case _ =>
+          LinkToAnchorOrNormalHref(link)
+      }
+    } else
+      LinkToAnchorOrNormalHref(link)
   }
 
   private def LinkToAnchorOrNormalHref(link: Seq[String]): NA.NamuHref = {
@@ -486,10 +494,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // {{{#!folding 제목 [[Markup]]}}} 등
   def FoldingBlock: Rule1[NM] = rule {
-    ICCommandStr("{{{#!folding") ~ WL.? ~
-      LineString ~ FetchLineEnd ~
-      NamuMarkEndWith("}}}") ~ CommandStr("}}}") ~>
-      NA.FoldingBlock
+    ICCommandStr("{{{#!folding") ~ WL.? ~ LineString ~ FetchLineEnd ~
+      push(new SB) ~ RBResolver.* ~ "}}}" ~>
+      ((tsb: SB) => tsb.toString) ~ SubParser ~> NA.FoldingBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
@@ -565,7 +572,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     ICCommandStr("<math>") ~ LineStringExceptS("</math>") ~ ICCommandStr("</math>") ~> NA.MathBlock
   }
 
-  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LinkPath ~> NA.Redirect }
+  def Redirect = rule { ("#redirect" | "#넘겨주기") ~ WL ~ LineEndLinkPath ~> NA.Redirect }
 
   def Comment = rule {
     "##" ~ LineString ~ FetchLineEnd ~> NA.Comment

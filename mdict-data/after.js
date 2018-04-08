@@ -1,6 +1,6 @@
 var dtList = [];
 var dtStr = '분류: ';
-$('.dtype').each(function(v) {
+$('.dtype').each(function() {
 	dtList.push($(this).find('a')[0].outerHTML); 
 });
 for (var i = 0; i < dtList.length; i++) {
@@ -12,4 +12,4 @@ if (dtList.length > 0) {
 } else {
 	$('#doctype-list').remove();
 }
-$('.')
+$('.fold dt').click(function(){ $(this).siblings().toggle() })

@@ -3,19 +3,19 @@ package net.kinetc.biryo
 import java.io.PrintWriter
 import java.util.Date
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 
 /**
   * Created by KINETC on 2017-07-29.
   */
 object PrinterActor {
-  def props(path: String): Props = Props(new PrinterActor(path))
+  def props(path: String, exitActor: ActorRef): Props = Props(new PrinterActor(path, exitActor))
   final case class PrintText(text: String)
   case object Close
 }
 
 
-class PrinterActor(path: String) extends Actor {
+class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
   import PrinterActor._
 
   val pathFile: PrintWriter = new PrintWriter(path, "UTF-8")
@@ -38,11 +38,10 @@ class PrinterActor(path: String) extends Actor {
         time = newTime
       }
     case Close =>
-      println("get close")
       closeCount += 1
       if (closeCount == 3) {
         pathFile.close()
-        sys.exit()
       }
+      exitActor ! ExitActor.Exit
   }
 }

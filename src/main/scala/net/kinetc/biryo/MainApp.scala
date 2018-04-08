@@ -17,7 +17,7 @@ object MainApp extends App {
     """.stripMargin
 
 
-  // ---- parsing arguments ----
+  // ---- Parsing Arguments ----
 
 
   var filename = ""
@@ -45,7 +45,7 @@ object MainApp extends App {
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
 
-  // ---- read files ----
+  // ---- Reading Files ----
 
 
   val namuFile = new File(filename)
@@ -66,15 +66,18 @@ object MainApp extends App {
 
   val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
+  cssSource.close()
 
   val namuSource = Source.fromFile(filename, "UTF-8")
 
-  // ---- making Actors ----
+
+  // ---- Making Actors ----
 
 
   val actorSystem = ActorSystem("namuParser")
-  val printer = actorSystem.actorOf(PrinterActor.props(exportFile), "printerActor")
-  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolderPath), "framePrinterActor")
+  val exitActor = actorSystem.actorOf(ExitActor.props(), "exitActor")
+  val printer = actorSystem.actorOf(PrinterActor.props(exportFile, exitActor), "printerActor")
+  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolderPath, exitActor), "framePrinterActor")
   val mdictMakers = Array(
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker1"),
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),

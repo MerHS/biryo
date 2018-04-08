@@ -394,31 +394,58 @@ class WikiParserSpec extends Specification {
         NA.TR(List(NA.TD(RS("Test"), List[NA.TableStyle]())), List[NA.TableStyle]())
 
       parser = new WikiParser("||Test||")
-      parse(parser, parser.Table.run()) ===
-        NA.TableWrapper(NA.Table(
-          List(NA.TR(List(NA.TD(RS("Test"), List[NA.TableStyle]())), List[NA.TableStyle]())),
-          List[NA.TableStyle]()),
-          None)
+      parse(parser, parser.Table.run()) === lineTableMaker(RS("Test"))
     }
 
-    "parse Folding in Table with Indent" in {
-      val testFolding =
-        """ * 기본
-          | ||결과||{{{#!folding 접기
-          |【내용 1】}}}||""".stripMargin
-      val testFoldingParsed = NA.Indent(paraMaker(
-        RS("* 기본"), NA.TR(List(
-          NA.TD(RS("결과"), List[NA.TableStyle]()),
-          NA.TD(NA.FoldingBlock("접기", RS("【내용 1】")), List[NA.TableStyle]())
-        ), List[NA.TableStyle]())
-      ), 1)
+    "parse Folding" in {
+      "in Table" in {
+        val testFolding = "||결과||{{{#!folding 접기\n【내용 1】}}}||"
 
-      val parser = new WikiParser(testFolding)
-      parseAll(testFolding) === testFoldingParsed
+        parseAll(testFolding) === lineTableMaker(RS("결과"), NA.FoldingBlock("접기", RS("【내용 1】")))
+      }
+
+      "with Table in Table" in {
+        var testFolding = "||{{{#!folding 접기\n||값||}}}||"
+        var testFoldingParsed =
+          lineTableMaker(
+            NA.FoldingBlock("접기",
+              lineTableMaker(RS("값"))
+            ))
+
+        parseAll(testFolding) === testFoldingParsed
+
+        testFolding = "||결과||{{{#!folding 접기\n||값||\n}}}||"
+        testFoldingParsed =
+          lineTableMaker(
+            RS("결과"),
+            NA.FoldingBlock("접기",
+              lineTableMaker(RS("값"))
+            ))
+
+        parseAll(testFolding) === testFoldingParsed
+      }
+
+      "in Table with Indent" in {
+        val testFolding =
+          """ * 기본
+            | ||결과||{{{#!folding 접기
+            |【내용 1】}}}||""".stripMargin
+        val testFoldingParsed = NA.Indent(paraMaker(
+          RS("* 기본"),
+          lineTableMaker(RS("결과"), NA.FoldingBlock("접기", RS("【내용 1】")))
+        ), 1)
+
+        val parser = new WikiParser(testFolding)
+        parseAll(testFolding) === testFoldingParsed
+      }
     }
 
-    "parse from file - Indent / Lists" in {
-      1 === 1
+
+    "parse malformed strings" in {
+       parseAll("[[XX|XX~~]]YY~~") === paraMaker(
+         NA.DocLink(NA.NormalHref("XX"), Some(RS("XX~~"))),
+         RS("YY~~")
+       )
     }
   }
 
@@ -431,6 +458,11 @@ class WikiParserSpec extends Specification {
 
       renderAll("test/test2", """[[/test3]]""") ===
         """<a href="entry://test/test2/test3">test/test2/test3</a>"""
+    }
+
+    "render Redirects" in {
+      renderAll("test", "#redirect test2") ===
+        """<a href="entry://test2">리다이렉트:test2</a>"""
     }
 
     "parse escaped Links" in {
@@ -484,4 +516,14 @@ class WikiParserSpec extends Specification {
   }
 
   private def paraMaker(marks: NM*): NA.Paragraph = new PG(marks.toVector)
+
+  private def lineTableMaker(marks: NM*): NA.TableWrapper = {
+    val tds = marks.map(mark => NA.TD(mark, List[NA.TableStyle]())).toList
+    NA.TableWrapper(NA.Table(
+      Vector(NA.TR(
+        tds,
+        List[NA.TableStyle]())),
+      List[NA.TableStyle]()),
+    None)
+  }
 }

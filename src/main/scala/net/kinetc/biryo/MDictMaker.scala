@@ -67,7 +67,10 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
         makeRawHtml(title, text)
       else
         makeMDictHtml(title, text)
-    case FrameDoc(title, text) => makeFrameJS(title, text)
-    case ParseEnd => printActor ! Close
+    case FrameDoc(title, text) =>
+      makeFrameJS(title, text)
+    case ParseEnd =>
+      printActor ! Close
+      framePrinterActor ! CloseFPA
   }
 }
