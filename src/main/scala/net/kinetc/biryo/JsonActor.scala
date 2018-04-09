@@ -1,29 +1,24 @@
 package net.kinetc.biryo
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import akka.util.Timeout
-import akka.pattern.ask
 import akka.actor.{Actor, ActorRef, Props}
+import akka.routing.Broadcast
 import jawn.{AsyncParser, ParseException, ast}
 
 import scala.annotation.tailrec
 import scala.io.Source
 
 object JsonActor {
-  def props(args: Arguments, mdictMakers: Array[ActorRef]) = Props(new JsonActor(args, mdictMakers))
+  def props(args: Arguments, mdictMakerRouter: ActorRef) = Props(new JsonActor(args, mdictMakerRouter))
 
   final case class DoParse(fileName: String)
   final case class Arguments(printRaw: Boolean, useInlineCSS: Boolean, blocking: Boolean)
 }
 
-class JsonActor(args: JsonActor.Arguments, mdictMakers: Array[ActorRef]) extends Actor {
+class JsonActor(args: JsonActor.Arguments, mdictMakerRouter: ActorRef) extends Actor {
   import JsonActor._
   import net.kinetc.biryo.MDictMaker._
-  var rrIndex = 0 // round robin / we can make it better
-  var docCount = 0
 
-  implicit val timeout = Timeout(3 minutes)
+  var docCount = 0
 
   private def makeMDict(js: ast.JValue): Unit = {
     var isFrame = false
@@ -37,17 +32,13 @@ class JsonActor(args: JsonActor.Arguments, mdictMakers: Array[ActorRef]) extends
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
         if (!args.printRaw && !args.useInlineCSS && isFrame) {
-          mdictMakers(rrIndex) ! FrameDoc(title, text)
-          rrIndex = (rrIndex + 1) % 3
+          mdictMakerRouter ! FrameDoc(title, text)
         }
 
-        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text, args.printRaw)
-        rrIndex = (rrIndex + 1) % 3
+        mdictMakerRouter ! MDictDoc(prefix + title, text, args.printRaw)
         docCount += 1
-        if (args.blocking && docCount % 10000 == 0) {
-          val future = mdictMakers(0) ? WaitUntilMailBoxCleared
-          val result = Await.result(future, timeout.duration)
-          println(result)
+        if (docCount % 10000 == 0) {
+          println(s"parse count $docCount")
         }
       case _ => ()
     }
@@ -78,6 +69,6 @@ class JsonActor(args: JsonActor.Arguments, mdictMakers: Array[ActorRef]) extends
       namuSource.close()
       println(s"Finish! Document counts: $docCount")
 
-      mdictMakers.foreach(_ ! ParseEnd)
+      mdictMakerRouter ! Broadcast(ParseEnd)
   }
 }

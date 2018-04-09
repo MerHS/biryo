@@ -5,9 +5,9 @@ import akka.util.Timeout
 import akka.pattern.ask
 import org.parboiled2.{ErrorFormatter, ParseError}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by KINETC on 2017-07-27.
@@ -19,7 +19,6 @@ object MDictMaker {
   final case class MDictDoc(title: String, text: String, printRaw: Boolean=false)
   final case class FrameDoc(title: String, text: String)
   case object ParseEnd
-  case object WaitUntilMailBoxCleared
 }
 
 class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Actor {
@@ -28,8 +27,11 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
   import MDictMaker._
   import PrinterActor._
 
+  implicit val ec: ExecutionContext = context.system.dispatchers.lookup("biryo-blocking-dispatcher")
   val katex = new KatexRenderer
-  implicit val timeout = Timeout(3 minutes)
+
+  implicit val askTimeout = Timeout(2 minutes)
+  val compileTimeout = Timeout(500 milliseconds)
 
   var sendCount = 0
 
@@ -38,20 +40,33 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
     val renderer = new HTMLRenderer(katex)
     val postProcessor = new ASTPostProcessor(title)
 
-    parser.NamuMarkRule.run() match {
-      case Success(result) =>
-        val postResult = postProcessor.postProcessAST(result)
-        val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
-        printActor ! PrintText(compiledText)
-        sendCount += 1
-        if (sendCount % 1000 == 0) {
-          val future = printActor ? WaitUntilPrint
-          val result = Await.result(future, timeout.duration)
-          println(s"Actor ${self.path.name}: $result")
-        }
-      case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
-      case Failure(e)             => e.printStackTrace()
+    val futureText: Future[Option[String]] = Future {
+      parser.NamuMarkRule.run() match {
+        case Success(result) =>
+          val postResult = postProcessor.postProcessAST(result)
+          val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
+
+          Some(compiledText)
+        case Failure(e: ParseError) =>
+          println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
+          None
+        case Failure(e) =>
+          e.printStackTrace()
+          None
+      }
     }
+
+    Try(Await.result(futureText, compileTimeout.duration)) match {
+      case Success(Some(compiledText)) =>
+        printActor ! PrintText(compiledText)
+      case _ =>
+        printActor ! GetError(title)
+    }
+  }
+
+  sendCount += 1
+  if (sendCount % 1000 == 0) {
+    println(s"Actor ${self.path.name}: $sendCount")
   }
 
   def makeRawHtml(title: String, text: String): Unit = {
@@ -65,13 +80,27 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
     val renderer = new FrameRenderer(katex)
     val postProcessor = new ASTPostProcessor(title)
 
-    parser.NamuMarkRule.run() match {
-      case Success(result) =>
-        val postResult = postProcessor.postProcessAST(result)
-        val compiledText = renderer.generateHTML(title, postResult)
+    val futureText: Future[Option[String]] = Future {
+      parser.NamuMarkRule.run() match {
+        case Success(result) =>
+          val postResult = postProcessor.postProcessAST(result)
+          val compiledText = renderer.generateHTML(title, postResult)
+
+          Some(compiledText)
+        case Failure(e: ParseError) =>
+          println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
+          None
+        case Failure(e) =>
+          e.printStackTrace()
+          None
+      }
+    }
+
+    Try(Await.result(futureText, compileTimeout.duration)) match {
+      case Success(Some(compiledText)) =>
         framePrinterActor ! MakeJSFile(title, compiledText)
-      case Failure(e: ParseError) => println(parser.formatError(e, new ErrorFormatter(showTraces = true)))
-      case Failure(e) => e.printStackTrace()
+      case _ =>
+        printActor ! GetError(s"$title - frame")
     }
   }
 
@@ -86,7 +115,5 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
     case ParseEnd =>
       printActor ! Close
       framePrinterActor ! CloseFPA
-    case WaitUntilMailBoxCleared =>
-      sender ! "cleared!"
   }
 }

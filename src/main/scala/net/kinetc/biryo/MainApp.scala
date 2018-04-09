@@ -3,6 +3,8 @@ package net.kinetc.biryo
 import java.io.File
 
 import akka.actor.ActorSystem
+import akka.routing.SmallestMailboxPool
+import com.typesafe.config.ConfigFactory
 import jawn.{AsyncParser, ParseException, ast}
 import net.kinetc.biryo.JsonActor.{Arguments, DoParse}
 
@@ -75,17 +77,34 @@ object MainApp extends App {
 
   // ---- Making Actors ----
 
+  val config = ConfigFactory.parseString(
+    """
+      |biryo-blocking-dispatcher {
+      |  type = Dispatcher
+      |  executor = "thread-pool-executor"
+      |  thread-pool-executor {
+      |    fixed-pool-size = 16
+      |  }
+      |  throughput = 1
+      |}
+    """.stripMargin)
 
-  val actorSystem = ActorSystem("namuParser")
+  val poolSize = {
+    val coreSize = Runtime.getRuntime.availableProcessors
+    if (coreSize == 1) 1 else coreSize - 1
+  }
+
+  println(s"Parse Start with ${poolSize + 1} Threads")
+
+  val actorSystem = ActorSystem("namuParser", ConfigFactory.load(config))
   val exitActor = actorSystem.actorOf(ExitActor.props(), "exitActor")
   val printer = actorSystem.actorOf(PrinterActor.props(exportFile, exitActor), "printerActor")
   val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolderPath, exitActor), "framePrinterActor")
-  val mdictMakers = Array(
-    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker1"),
-    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),
-    actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker3")
+  val mdictMakerRouter = actorSystem.actorOf(
+    MDictMaker.props(printer, framePrinter).withRouter(SmallestMailboxPool(poolSize)),
+    "mdictMaker"
   )
-  val jsonActor = actorSystem.actorOf(JsonActor.props(Arguments(printRaw, useInlineCSS, blocking), mdictMakers), "jsonActor")
+  val jsonActor = actorSystem.actorOf(JsonActor.props(Arguments(printRaw, useInlineCSS, blocking), mdictMakerRouter), "jsonActor")
 
   jsonActor ! DoParse(filename)
 }
