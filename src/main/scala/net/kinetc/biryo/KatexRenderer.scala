@@ -3,6 +3,7 @@ package net.kinetc.biryo
 import java.io.{File, FileReader}
 import javax.script._
 
+import scala.io.Source
 import scala.util.{Success, Try}
 import scala.util.control.NonFatal
 
@@ -22,7 +23,10 @@ class KatexRenderer {
 
     if (_engine != null && filePath.exists) {
       try {
-        _engine.asInstanceOf[ScriptEngine with Invocable].eval(new FileReader("./mdict-data/math.js"))
+        val mathSource = Source.fromFile("./mdict-data/math.js", "UTF-8")
+        val script = mathSource.getLines.mkString("\n")
+        mathSource.close()
+        _engine.asInstanceOf[ScriptEngine with Invocable].eval(script)
         canLoadJs = true
       } catch {
         case NonFatal(_) => canLoadJs = true
@@ -45,5 +49,6 @@ class KatexRenderer {
     } else {
       s"<code>${HTMLRenderer.escapeHTML(mathText)}</code>"
     }
+//    s"<code>${HTMLRenderer.escapeHTML(mathText)}</code>"
   }
 }

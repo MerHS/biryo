@@ -76,7 +76,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '-' => HR | LineTerm
         case '>' => BlockQuote | LineTerm
         case '[' => LineStartMacro | LineTerm
-        case '<' => MathBlock | LineTerm
         case _ => LineTerm
       }
     }
@@ -92,7 +91,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '-' => HR | LineTermEndWith(s)
         case '>' => BlockQuoteEW(s) | LineTermEndWith(s)
         case '[' => LineStartMacro | LineTermEndWith(s)
-        case '<' => MathBlock | LineTermEndWith(s)
         case _ => LineTermEndWith(s)
       }
     }
@@ -131,6 +129,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         case '^' => Sup
         case ',' => Sub
         case '_' => Underline
+        case '<' => MathBlock
         case '\'' => Bold | Italic
         case _ => MISMATCH
       }
@@ -140,6 +139,14 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   // TODO: Check it Before get indent
   def ListObj: Rule1[NM] = ???
+
+  var spaceNo: Int = 0
+
+  private def CheckIndent: Rule1[Int] = rule {
+    &(capture(ch(' ').+) ~> ((s: String) => {
+      spaceNo = s.length
+    })) ~ push(spaceNo)
+  }
 
   def IndentEW(s: String): Rule1[NM] = rule {
     CheckIndent ~ test(spaceNo > 0) ~ IndentLineEW(s).+ ~>
@@ -168,14 +175,6 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         (NewLine ~> ((s: String) => s + '\n')))
   }
 
-  var spaceNo: Int = 0
-
-  private def CheckIndent: Rule1[Int] = rule {
-    &(capture(ch(' ').+) ~> ((s: String) => {
-      spaceNo = s.length
-    })) ~
-      push(spaceNo)
-  }
 
   // Rule 8. Table (Multi-Liner)
 
@@ -227,28 +226,58 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def FetchTableData = rule {
-    FetchTableCSSList ~ FetchTableString ~ SubParser ~>
+    FetchTableCSSList ~ FetchTableNamuMark ~>
       ((tsl: List[NA.TableStyle], nm: NM) => NA.TD(nm, tsl))
   }
 
-  def FetchTableString = rule {
-    FetchTableRawString ~> ((tsl: List[NA.TableStyle], s: String) =>
-      if (s.isEmpty) {
-        tsl :: s :: HNil
-      } else if (s.length >= 2 && s.head == ' ' && s.last == ' ') {
-        (NA.Align(NA.AlignCenter, forTable = false) :: tsl) :: s.substring(1, s.length - 1) :: HNil
-      } else if (s.head == ' ') {
-        (NA.Align(NA.AlignRightBottom, forTable = false) :: tsl) :: s.substring(1) :: HNil
-      } else if (s.last == ' ') {
-        (NA.Align(NA.AlignLeftTop, forTable = false) :: tsl) :: s.substring(0, s.length - 1) :: HNil
-      } else {
-        tsl :: s :: HNil
-      }
-      )
+  def FetchTableNamuMark = rule {
+    ((anyOf(" \t").+ ~ push(true)) | push(false)) ~ NamuMarkEndWith("||") ~>
+      ((tsl: List[NA.TableStyle], headSpaced: Boolean, nm: NM) => {
+        nm match {
+          case NA.RawString(s) =>
+            val str = if (!s.isEmpty && s.last == ' ') s.init else s
+            val align = AlignBySpace(headSpaced, charAtRC(-1) == ' ')
+            if (align != null) {
+              (align :: tsl) :: NA.RawString(str) :: HNil
+            } else {
+              tsl :: nm :: HNil
+            }
+          case NA.Paragraph(seq) =>
+            var (h, t) = (seq.init, seq.last)
+            var tailSpaced = false
+            var newSeq = seq
+            seq.last match {
+              case NA.RawString(s) if s.length > 0 && s.last == ' ' =>
+                tailSpaced = true
+                t = NA.RawString(s.init)
+                newSeq = h :+ t
+              case _ =>
+                tailSpaced = charAtRC(-1) == ' '
+            }
+
+            val align = AlignBySpace(headSpaced, tailSpaced)
+            if (align != null) {
+              (align :: tsl) :: NA.Paragraph(newSeq) :: HNil
+            } else {
+              tsl :: nm :: HNil
+            }
+          case _ =>
+            tsl :: nm :: HNil
+        }
+      })
   }
 
-  def FetchTableRawString: Rule1[String] = rule {
-    capture((!CommandStr("||") ~ ANY).*) ~ !EOI
+  private def AlignBySpace(headSpaced: Boolean, tailSpaced: Boolean): NamuAST.Align = {
+    (headSpaced, tailSpaced) match {
+      case (false, false) =>
+        null
+      case (false, true) =>
+        NA.Align(NA.AlignLeftTop, forTable = false)
+      case (true, false) =>
+        NA.Align(NA.AlignRightBottom, forTable = false)
+      case _ =>
+        NA.Align(NA.AlignCenter, forTable = false)
+    }
   }
 
   def FetchTableEnd: Rule0 = rule {
@@ -495,16 +524,15 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   // {{{#!folding 제목 [[Markup]]}}} 등
   def FoldingBlock: Rule1[NM] = rule {
     ICCommandStr("{{{#!folding") ~ WL.? ~ LineString ~ FetchLineEnd ~
-      push(new SB) ~ RBResolver.* ~ "}}}" ~>
+      push(new SB) ~ RBResolver.* ~ ("\n}}}" | "}}}") ~>
       ((tsb: SB) => tsb.toString) ~ SubParser ~> NA.FoldingBlock
   }
 
   // {{{#!wiki style="height=300" [[Markup]]}}} 등
   def WikiBlock: Rule1[NM] = rule {
-    ICCommandStr("{{{#!wiki") ~ WL.? ~ "style=\"" ~
-      StringExceptC('"') ~ '"' ~ WL.? ~ NewLine.? ~
-      NamuMarkEndWith("}}}") ~ CommandStr("}}}") ~>
-      NA.WikiBlock
+    ICCommandStr("{{{#!wiki") ~ WL.? ~ "style=\"" ~ StringExceptC('"') ~ '"' ~ WL.? ~ NewLine.? ~
+      push(new SB) ~ RBResolver.* ~ ("\n}}}" | "}}}") ~>
+      ((tsb: SB) => tsb.toString) ~ SubParser ~> NA.WikiBlock
   }
 
   def HTMLBlock: Rule1[NM] = rule {
@@ -567,6 +595,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
 
   // Rule 2. Basic Blocks / One-liners
+
 
   def MathBlock = rule {
     ICCommandStr("<math>") ~ LineStringExceptS("</math>") ~ ICCommandStr("</math>") ~> NA.MathBlock

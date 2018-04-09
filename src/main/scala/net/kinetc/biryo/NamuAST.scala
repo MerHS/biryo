@@ -451,7 +451,7 @@ object NamuAST {
         case Success(date) =>
           val day = ChronoUnit.DAYS.between(date, currTime)
           if (day >= 0) s"+$day"
-          else s"-$day"
+          else s"$day"
         case Failure(_) => s"[dday($dateText)]"
       }
     }

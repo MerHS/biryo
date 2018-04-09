@@ -96,7 +96,8 @@ class WikiParserSpec extends Specification {
       parseAll("== {{{ test }}} ==5") ===
         paraMaker(RS("== "), IS(" test ", isMultiLine=false), RS(" ==5"))
 
-      parseAll("<math>asdf</math>") === NA.MathBlock("asdf")
+      parseAll("test = <math>asdf</math>") ===
+        paraMaker(RS("test = "), NA.MathBlock("asdf"))
     }
 
 
@@ -215,6 +216,9 @@ class WikiParserSpec extends Specification {
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Basic"), Some(RS("Link")))
       parseAll("[[Basic|Link]]") === NA.DocLink(NA.NormalHref("Basic"), Some(RS("Link")))
 
+      parseAll("[[Deco|'''Li__nk__''']]") ===
+        NA.DocLink(NA.NormalHref("Deco"), Some(NA.Bold(paraMaker(RS("Li"), NA.Underline(RS("nk"))))))
+
       parser = new WikiParser("[[Non Basic\\|Link]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("Non Basic|Link"), None)
       parseAll("[[Non Basic\\|Link]]") === NA.DocLink(NA.NormalHref("Non Basic|Link"), None)
@@ -227,22 +231,6 @@ class WikiParserSpec extends Specification {
 
       parser = new WikiParser("[[C\\#]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.NormalHref("C#"), None)
-
-      parseAll("More is Better: [[Li\\]]nk#s-11.3|\\|\\]][[#s-anchor|in Link]]]]\n") ===
-        paraMaker(
-          RS("More is Better: "),
-          NA.DocLink(
-            NA.ParaHref("Li]]nk", Vector[Int](11, 3)),
-            Some(paraMaker(
-              RS("|]]"),
-              NA.DocLink(
-                NA.SelfAnchorHref("s-anchor"),
-                Some(RS("in Link"))
-              )
-            ))
-          ),
-          NA.BR
-        )
 
       parser = new WikiParser("[[../|Upper]]")
       parse(parser, parser.DocLink.run()) === NA.DocLink(NA.SuperDocHref, Some(RS("Upper")))
@@ -386,6 +374,13 @@ class WikiParserSpec extends Specification {
     }
 
     "parse Basic Tables" in {
+      print("align right: ")
+      println(parseAll("|| Test||"))
+      print("align left: ")
+      println(parseAll("||Test ||"))
+      print("align center: ")
+      println(parseAll("|| Test ||"))
+
       var parser = new WikiParser("||Test||")
       parse(parser, parser.TD.run()) === NA.TD(RS("Test"), List[NA.TableStyle]())
 
@@ -442,6 +437,7 @@ class WikiParserSpec extends Specification {
 
 
     "parse malformed strings" in {
+       // If it is fixed, parser would be two-times slower
        parseAll("[[XX|XX~~]]YY~~") === paraMaker(
          NA.DocLink(NA.NormalHref("XX"), Some(RS("XX~~"))),
          RS("YY~~")

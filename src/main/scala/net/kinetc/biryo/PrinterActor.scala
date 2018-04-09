@@ -11,6 +11,7 @@ import akka.actor.{Actor, ActorRef, Props}
 object PrinterActor {
   def props(path: String, exitActor: ActorRef): Props = Props(new PrinterActor(path, exitActor))
   final case class PrintText(text: String)
+  case object WaitUntilPrint
   case object Close
 }
 
@@ -40,8 +41,11 @@ class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
     case Close =>
       closeCount += 1
       if (closeCount == 3) {
+        println("close file")
         pathFile.close()
       }
       exitActor ! ExitActor.Exit
+    case WaitUntilPrint =>
+      sender ! s"parsedNo: $parsedNo"
   }
 }

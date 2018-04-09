@@ -20,8 +20,8 @@ class ExitActor extends Actor {
     case Exit =>
       exitCount += 1
       if (exitCount == 6) {
-        println("exit")
-        sys.exit()
+        println("Shutdown Program!")
+        context.system.terminate()
       }
   }
 }

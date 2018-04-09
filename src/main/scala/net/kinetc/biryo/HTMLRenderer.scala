@@ -51,6 +51,7 @@ object HTMLRenderer {
   def deleteExternalTag(s: String): String = {
     s.replaceAll("<embed(.|\\v)*</embed>|<iframe(.|\\v)*</iframe>", "")
       .replaceAll("href=\"http://", "href=\"entry://")
+      .replaceAll("href=\"/w/", "href=\"entry://")
   }
 
   var inlineStyle = ""
@@ -142,7 +143,9 @@ class HTMLRenderer(private val katex: KatexRenderer) {
         }
       case SyntaxBlock(l, v) => SyntaxBlock(l, escapeHTML(v))
       case TableOfContents => HTMLString(headingsRenderer(headings.reverse))
-      case MathBlock(s) => hasMathBlock = true; HTMLString(katex.renderToString(s))
+      case MathBlock(s) =>
+        // hasMathBlock = true
+        HTMLString(katex.renderToString(s))
   }
 
   def includeScriptListRenderer(incs: List[(Include, String)]): String = {

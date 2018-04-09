@@ -14,7 +14,7 @@ class ASTPostProcessor(val title: String) {
   def postProcessAST(mark: NamuMark): NamuMark = {
     mark.preTrav(findHeadings)
 
-    mark.preMap(footNoteTableProcessor).postMap(postProcessor)
+    mark.preMap(footNoteAndTableProcessor).postMap(postProcessor)
   }
 
   // TODO: List / 다중 SpanMark 앞뒤공백 제거
@@ -22,6 +22,9 @@ class ASTPostProcessor(val title: String) {
     /// ----- Href Resolver -----
     case DocLink(href: ExternalHref, None) =>
       DocLink(NormalHref(href.value), Some(NamuAST.RawString("외부링크")))
+
+    case DocLink(href, Some(NamuAST.RawString(str))) if str.isEmpty =>
+      DocLink(href, None).hrefMap(hrefProcessor)
 
     case withHref: HasHref =>
       withHref.hrefMap(hrefProcessor)
@@ -41,7 +44,7 @@ class ASTPostProcessor(val title: String) {
       HTMLString(s + "</span>")
   }
 
-  protected def footNoteTableProcessor: NamuMap = {
+  protected def footNoteAndTableProcessor: NamuMap = {
     case f @ FootNote(v, noteStr) =>
       fnNo += 1
       noteStr match {
@@ -88,7 +91,9 @@ class ASTPostProcessor(val title: String) {
   protected def hrefProcessor(href: NamuHref): NamuHref = {
     href match {
       case NormalHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
+      case ParaHref(value, paraNo) if value == title => hrefProcessor(SelfParaHref(paraNo))
       case ParaHref(value, paraNo) => RawHref(value, s"entry://${href.escapeValue}#s-${paraNo.mkString(".")}")
+      case AnchorHref(value, anchor) if value == title => hrefProcessor(SelfAnchorHref(anchor))
       case AnchorHref(value, anchor) => RawHref(value, s"entry://${href.escapeValue}#${escapeURL(anchor)}")
       case SelfParaHref(_) | SelfAnchorHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
       case SuperDocHref =>

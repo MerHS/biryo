@@ -4,6 +4,7 @@ import java.io.File
 
 import akka.actor.ActorSystem
 import jawn.{AsyncParser, ParseException, ast}
+import net.kinetc.biryo.JsonActor.{Arguments, DoParse}
 
 import scala.annotation.tailrec
 import scala.io.Source
@@ -23,6 +24,7 @@ object MainApp extends App {
   var filename = ""
   var useInlineCSS = false
   var printRaw = false
+  var blocking = false
 
   if (args.length == 0) {
     throw new IllegalArgumentException(helpText)
@@ -35,6 +37,8 @@ object MainApp extends App {
         HTMLRenderer.useInlineCSS = useInlineCSS
       case "-raw" =>
         printRaw = true
+      case "-block" =>
+        blocking = true
       case _ =>
         throw new IllegalArgumentException(helpText)
     }
@@ -68,8 +72,6 @@ object MainApp extends App {
   HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
   cssSource.close()
 
-  val namuSource = Source.fromFile(filename, "UTF-8")
-
 
   // ---- Making Actors ----
 
@@ -83,56 +85,8 @@ object MainApp extends App {
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker2"),
     actorSystem.actorOf(MDictMaker.props(printer, framePrinter), "mdictMaker3")
   )
-  var rrIndex = 0 // round robin / we can make it better
-  var docCount = 0
+  val jsonActor = actorSystem.actorOf(JsonActor.props(Arguments(printRaw, useInlineCSS, blocking), mdictMakers), "jsonActor")
 
-
-  def makeMDict(js: ast.JValue): Unit = {
-    var isFrame = false
-    val prefix = js.get("namespace").getString match {
-      case Some("0") => ""
-      case Some("1") => isFrame = true; "틀:"
-      case Some("2") => "분류:"
-      case Some("6") => "나무위키:"
-      case _ => return
-    }
-    (js.get("title").getString, js.get("text").getString) match {
-      case (Some(title), Some(text)) =>
-        if (!printRaw && !useInlineCSS && isFrame) {
-          mdictMakers(rrIndex) ! FrameDoc(title, text)
-          rrIndex = (rrIndex + 1) % 3
-        }
-      
-        mdictMakers(rrIndex) ! MDictDoc(prefix + title, text, printRaw)
-        rrIndex = (rrIndex + 1) % 3
-        docCount += 1
-      case _ => ()
-    }
-  }
-
-
-  val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
-
-  @tailrec
-  def loop(it: Iterator[String]): Either[ParseException, Unit] = {
-    if (it.hasNext) {
-      p.absorb(it.next) match {
-        case Right(js) =>
-          js.foreach(makeMDict)
-          loop(it)
-        case Left(e) =>
-          e.printStackTrace()
-          Left(e)
-      }
-    } else p.finish().right.map(_.foreach(makeMDict))
-  }
-
-  val chunks: Iterator[String] = namuSource.grouped(1024 * 64).map(_.mkString) // 64KB Chunk
-  loop(chunks)
-  namuSource.close()
-
-  println(s"Finish! Document counts: $docCount")
-
-  mdictMakers.foreach(_ ! ParseEnd)
+  jsonActor ! DoParse(filename)
 }
 
