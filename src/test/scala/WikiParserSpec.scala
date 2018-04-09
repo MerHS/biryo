@@ -483,8 +483,25 @@ class WikiParserSpec extends Specification {
     }
 
     "render NamuMark Document file without Exception" in {
-      val namuHelpTxt = Source.fromFile("src/test/namu_help.txt").mkString
-      renderAll("namu_help", namuHelpTxt).isInstanceOf[String] === true
+      "src/test/namu_help.txt" in {
+        val namuHelpTxt = getFromFile("src/test/namu_help.txt")
+        renderAll("src/test/namu_help.txt", namuHelpTxt).isInstanceOf[String] === true
+      }
+
+      "src/test/dongdaegu.txt" in {
+        val namuHelpTxt = getFromFile("src/test/dongdaegu.txt")
+        renderAll("src/test/dongdaegu.txt", namuHelpTxt).isInstanceOf[String] === true
+      }
+
+      "src/test/dussel.txt" in {
+        val namuHelpTxt = getFromFile("src/test/dussel.txt")
+        renderAll("src/test/dussel.txt", namuHelpTxt).isInstanceOf[String] === true
+      }
+
+      "src/test/hangong.txt" in {
+        val namuHelpTxt = getFromFile("src/test/hangong.txt")
+        renderAll("src/test/hangong.txt", namuHelpTxt).isInstanceOf[String] === true
+      }
     }
   }
 
@@ -509,6 +526,13 @@ class WikiParserSpec extends Specification {
       case Failure(e: ParseError) => sys.error(parser.formatError(e, new ErrorFormatter(showTraces = true)))
       case Failure(e)             => throw e
     }
+  }
+
+  private def getFromFile(path: String): String = {
+    val source = Source.fromFile(path)
+    val text = source.mkString
+    source.close()
+    text
   }
 
   private def paraMaker(marks: NM*): NA.Paragraph = new PG(marks.toVector)

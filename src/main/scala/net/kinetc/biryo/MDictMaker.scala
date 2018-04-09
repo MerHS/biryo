@@ -31,7 +31,7 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
   val katex = new KatexRenderer
 
   implicit val askTimeout = Timeout(2 minutes)
-  val compileTimeout = Timeout(500 milliseconds)
+  val compileTimeout = Timeout(1 seconds)
 
   var sendCount = 0
 

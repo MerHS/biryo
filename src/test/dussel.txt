@@ -1,0 +1,4 @@
+== 승강장 정보 ==
+||<-35><:>↑ 에센/뒤스부르크 방면||
+||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#ff0000>{{{#ffffff 4}}}||<width=10px><:><#ff0000>{{{#ffffff 5}}}||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#0000ff>{{{#ffffff 6}}}||<width=10px><:><#ff0000>{{{#ffffff 7}}}||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#ff0000>{{{#ffffff 9}}}||<width=10px><:><#ff0000>{{{#ffffff 10}}}||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#006f35>{{{#ffffff 11}}}||<width=10px><:><#006f35>{{{#ffffff 12}}}||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#006f35>{{{#ffffff 13}}}||<width=10px><:><#006f35>{{{#ffffff 14}}}||<width=10px><:>| ||<width=10px><:>| ||<width=10px><:><#ff0000>{{{#ffffff 15}}}||<width=10px><:><#ff0000>{{{#ffffff 16}}}||<width=10px><:>| ||<width=10px><:>| ||
+||<-35><:>노이스/레버쿠젠 방면 ↓||

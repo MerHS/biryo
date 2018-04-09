@@ -226,43 +226,40 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   }
 
   def FetchTableData = rule {
-    FetchTableCSSList ~ FetchTableNamuMark ~>
+    FetchTableCSSList ~ (FetchTableCurlyBlock | (FetchTableString ~ SubParser)) ~>
       ((tsl: List[NA.TableStyle], nm: NM) => NA.TD(nm, tsl))
   }
 
-  def FetchTableNamuMark = rule {
-    ((anyOf(" \t").+ ~ push(true)) | push(false)) ~ NamuMarkEndWith("||") ~>
-      ((tsl: List[NA.TableStyle], headSpaced: Boolean, nm: NM) => {
-        nm match {
-          case NA.RawString(s) =>
-            val str = if (!s.isEmpty && s.last == ' ') s.init else s
-            val align = AlignBySpace(headSpaced, charAtRC(-1) == ' ')
-            if (align != null) {
-              (align :: tsl) :: NA.RawString(str) :: HNil
-            } else {
-              tsl :: nm :: HNil
-            }
-          case NA.Paragraph(seq) =>
-            var (h, t) = (seq.init, seq.last)
-            var tailSpaced = false
-            var newSeq = seq
-            seq.last match {
-              case NA.RawString(s) if s.length > 0 && s.last == ' ' =>
-                tailSpaced = true
-                t = NA.RawString(s.init)
-                newSeq = h :+ t
-              case _ =>
-                tailSpaced = charAtRC(-1) == ' '
-            }
+  private def FetchTableString = rule {
+    FetchTableRawString ~> ((tsl: List[NA.TableStyle], s: String) =>
+      if (s.length == 0) {
+        tsl :: s :: HNil
+      } else if (s.length >= 2 && s(0) == ' ' && s(s.length - 1) == ' ') {
+        (NA.Align(NA.AlignCenter, forTable = false) :: tsl) :: s.substring(1, s.length - 1) :: HNil
+      } else if (s(0) == ' ') {
+        (NA.Align(NA.AlignRightBottom, forTable = false) :: tsl) :: s.substring(1) :: HNil
+      } else if (s(s.length - 1) == ' ') {
+        (NA.Align(NA.AlignLeftTop, forTable = false) :: tsl) :: s.substring(0, s.length - 1) :: HNil
+      } else {
+        tsl :: s :: HNil
+      }
+      )
+  }
 
-            val align = AlignBySpace(headSpaced, tailSpaced)
-            if (align != null) {
-              (align :: tsl) :: NA.Paragraph(newSeq) :: HNil
-            } else {
-              tsl :: nm :: HNil
-            }
-          case _ =>
-            tsl :: nm :: HNil
+  private def FetchTableRawString: Rule1[String] = rule {
+    capture((!CommandStr("||") ~ ANY).*) ~ !EOI
+  }
+
+  private def FetchTableCurlyBlock = rule {
+    ((anyOf(" \t").+ ~ push(true)) | push(false)) ~
+      (WikiBlock | FoldingBlock) ~
+      ((anyOf(" \t").+ ~ FetchLineEnd.? ~ push(true)) | push(false)) ~>
+      ((tsl: List[NA.TableStyle], headSpaced: Boolean, nm: NM, tailSpaced: Boolean) => {
+        val align = AlignBySpace(headSpaced, tailSpaced)
+        if (align != null) {
+          (align :: tsl) :: nm :: HNil
+        } else {
+          tsl :: nm :: HNil
         }
       })
   }
