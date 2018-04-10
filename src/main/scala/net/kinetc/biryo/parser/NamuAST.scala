@@ -1,10 +1,10 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.parser
 
-import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.time.{LocalDate, LocalDateTime}
 
-import net.kinetc.biryo.HTMLRenderer.{escapeURL, _}
+import net.kinetc.biryo.renderer.HTMLRenderer._
 
 import scala.collection.Seq
 import scala.util.{Failure, Success, Try}

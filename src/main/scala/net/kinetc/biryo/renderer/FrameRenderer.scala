@@ -1,6 +1,6 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.renderer
 
-import net.kinetc.biryo.NamuAST._
+import net.kinetc.biryo.parser.NamuAST._
 
 /**
   * Created by KINETC on 2017-08-15.

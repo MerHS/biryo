@@ -5,14 +5,13 @@ import java.io.File
 import akka.actor.ActorSystem
 import akka.routing.SmallestMailboxPool
 import com.typesafe.config.ConfigFactory
-import jawn.{AsyncParser, ParseException, ast}
-import net.kinetc.biryo.JsonActor.{Arguments, DoParse}
+import net.kinetc.biryo.actor.JsonActor.{Arguments, DoParse}
+import net.kinetc.biryo.actor._
+import net.kinetc.biryo.renderer.HTMLRenderer
 
-import scala.annotation.tailrec
 import scala.io.Source
 
 object MainApp extends App {
-  import MDictMaker._
 
   val helpText =
     """

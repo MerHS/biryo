@@ -1,12 +1,14 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.renderer
 
-import net.kinetc.biryo.NamuAST._
-import net.kinetc.biryo.HTMLRenderer._
+import net.kinetc.biryo.parser.NamuAST
 
 /**
   * Created by KINETC on 2017-07-28.
   */
 class ASTPostProcessor(val title: String) {
+  import HTMLRenderer._
+  import NamuAST._
+
   private var hMin = 6
   private var currHeading: IndexedSeq[Int] = IndexedSeq(0)
   private var fnNo = 0

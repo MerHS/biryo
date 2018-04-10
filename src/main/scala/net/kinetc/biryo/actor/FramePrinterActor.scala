@@ -1,8 +1,9 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.actor
 
 import java.io.PrintWriter
 
 import akka.actor.{Actor, ActorRef, Props}
+import net.kinetc.biryo.renderer.HTMLRenderer
 
 /**
   * Created by KINETC on 2017-08-15.

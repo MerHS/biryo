@@ -1,4 +1,4 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.actor
 
 import java.io.PrintWriter
 import java.util.Date

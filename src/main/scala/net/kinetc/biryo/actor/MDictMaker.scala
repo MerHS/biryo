@@ -1,12 +1,13 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.actor
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.util.Timeout
-import akka.pattern.ask
+import net.kinetc.biryo.parser.WikiParser
+import net.kinetc.biryo.renderer.{ASTPostProcessor, FrameRenderer, HTMLRenderer, KatexRenderer}
 import org.parboiled2.{ErrorFormatter, ParseError}
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /**

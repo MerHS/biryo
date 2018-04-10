@@ -1,4 +1,4 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.parser
 
 import org.parboiled2._
 import shapeless.HNil

@@ -1,5 +1,6 @@
 
-import net.kinetc.biryo._
+import net.kinetc.biryo.parser.{NamuAST, WikiParser}
+import net.kinetc.biryo.renderer.{ASTPostProcessor, HTMLRenderer, KatexRenderer}
 import org.parboiled2._
 import org.specs2.mutable.Specification
 

@@ -1,8 +1,6 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.actor
 
-import java.io.PrintWriter
-
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, Props}
 
 object ExitActor {
   def props(): Props = Props(new ExitActor)

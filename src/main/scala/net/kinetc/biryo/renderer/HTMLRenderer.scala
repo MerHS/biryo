@@ -1,6 +1,6 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.renderer
 
-import net.kinetc.biryo.NamuAST._
+import net.kinetc.biryo.parser.NamuAST
 
 object HTMLRenderer {
   val foldingClass = "fold"
@@ -63,6 +63,7 @@ object HTMLRenderer {
   */
 class HTMLRenderer(private val katex: KatexRenderer) {
   import HTMLRenderer._
+  import NamuAST._
 
   protected var footnotes: List[FootNote] = List()
   protected var footnoteListLoc: List[Int] = List()

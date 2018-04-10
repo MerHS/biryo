@@ -1,8 +1,9 @@
-package net.kinetc.biryo
+package net.kinetc.biryo.actor
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.routing.Broadcast
 import jawn.{AsyncParser, ParseException, ast}
+import net.kinetc.biryo.actor.MDictMaker._
 
 import scala.annotation.tailrec
 import scala.io.Source
@@ -16,7 +17,6 @@ object JsonActor {
 
 class JsonActor(args: JsonActor.Arguments, mdictMakerRouter: ActorRef) extends Actor {
   import JsonActor._
-  import net.kinetc.biryo.MDictMaker._
 
   var docCount = 0
 
