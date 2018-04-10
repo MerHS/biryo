@@ -10,7 +10,7 @@
 
 ## Library Dependencies
 
-* Scala >= 2.11 (JDK >= 7)
+* Scala >= 2.11 (JDK >= 8)
 * [jawn](https://github.com/non/jawn)
 * [parboiled2](https://github.com/sirthias/parboiled2)
 * [shapeless](https://github.com/milessabin/shapeless) (for parboiled2)
@@ -72,13 +72,14 @@
 	* 16.8. 남은 날 (`DDay`)
 * 17\. 테이블(표) (`TableWrapper`)
 	* 테이블의 각 항목은 `Table` `TR`, `TD`와 같은 HTML요소, `TableAlign`, `TableStyle`등의 CSS 요소로 구현되어 있음
-* 19\. 접기
+* 18\. 수식 (`Math`)
+* 19\. 접기 (`FoldingBlock`)
 * 20\. HTML (`HTMLString`)
 	* 20.1. 틀 (mdd에 저장, 원본 또한 mdx에서 볼 수 있음)
-* 21\. 문법 강조 (`SyntaxBlock`) (not-rendered)
+* 21\. 문법 강조 (`SyntaxBlock`)
 * 22\. 분류 (`DocType`)
 
-### Unsupported Functions
+### Unsupported Functions / Syntax Rendering
 
 * 자동 리다이렉트
   * MDict에 자동 리다이렉트 기능이 구현되어있으나, 앵커 사용 불가 및 디버깅 용도 등으로 인해 해당 링크를 띄우는 식으로만 구현하였습니다. 
@@ -88,21 +89,19 @@
   * MDict 부하를 줄이기 위해 구현하지 않음
 * 5.7 [], |, \, #가 제목에 쓰이거나 제목이 /로 시작하는 문서로 하이퍼링크 걸기
   * \#이 링크에 들어가면 MDict 및 MdxBuilder의 버그로 #을 %23으로 변경해도 무조건 anchor로 처리됩니다.
-* 16\. 매크로 중 시간과 관련된 값은 파싱한 날짜를 기준으로 처리된다.
-* 16.3. pagecount
-  * 파싱은 되지만 실제 구현은 JS로 동적으로 해야 하기 때문에 (자주 쓰이지 않는 기능이므로) MDict 부하를 줄이기 위해 실제값으로 렌더링되지 않습니다.
-* 16.4. include (틀 제외)
-  * 현재 틀은 외부 JS 형식으로 변환하여 mdd에 저장하여 읽고있기 때문에 mdx-only 버전에선 렌더링되지 않습니다.
-* 21\. 문법 강조는 현재 4.4 인라인 코드와 같은 방식으로 렌더링됨
-
-### Unsupported Syntax
-
 * 7.2. 외부 이미지 링크 (현재 지원 종료)
   * 구현 계획 없음
 * 10\. 리스트
   * 들여쓰기는 구현되어 있으므로 리스트 첨자를 제외한 부분은 거의 비슷하게 보입니다.
+* 16\. 매크로 중 시간과 관련된 값은 파싱한 날짜를 기준으로 처리됩니다.
+* 16.3. pagecount
+  * 파싱은 되지만 실제 구현은 JS로 동적으로 해야 하기 때문에 (자주 쓰이지 않는 기능이므로) 부하를 줄이기 위해 실제값으로 렌더링되지 않습니다.
+* 16.4. include (틀 제외)
+  * 현재 틀은 외부 JS 형식으로 변환하여 mdd에 저장하여 읽고있기 때문에 mdx-only 버전에선 해당 틀 문서로 가는 링크로 렌더링됩니다.
 * 18\. 수식
-    * KaTeX로 HTML을 렌더링하는 부분까진 왔지만 폰트 로딩이 안되어 할 수 있는 방법을 찾아보는 중입니다.
+    * KaTeX로 HTML을 렌더링하는 부분까진 왔지만 MDict가 커스텀 폰트 로딩이 되지 않아 렌더링이 되지 않습니다.
+    * 현재는 4.4 인라인 코드와 같은 방식으로 렌더링됩니다.
+* 21\. 문법 강조는 현재 4.4 인라인 코드와 같은 방식으로 렌더링됩니다.
 
 ## How to build an Executable JAR
 
@@ -124,8 +123,6 @@ target/scala-2.11 폴더에 `biryo.jar`이 만들어집니다.
 **주의:** 안드로이드/PC버전 **MDict 1.x** 버전 사용자는 **MdxBuilder 3.0**, 
 **MDict 2.0** 버전 사용자는 **MdxBuilder 4.0**버전으로 mdx/mdd파일을 만들어야 정상 작동합니다.
 
-**요주의:** 현재 MdxBuilder 4.0버전에 JS파일이 정상적으로 포함되지 않습니다. 4.0을 쓰고싶다면 mdx only 버전을 이용해주십시오.
-
 mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 인라인되어있는 mdx only 버전을 제작할 수 있습니다.
 일반적인 경우라면 mdx, mdd를 같이 만드시면 됩니다. (mdx only버전의 경우 파일크기가 약 200MB정도 커집니다. )
 
@@ -135,7 +132,7 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 1. [나무위키 데이터베이스 덤프](https://namu.wiki/w/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4:%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84?from=%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4%20%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84)를 받고 압축을 풀어 jar파일과 같은 경로에 넣습니다. (이름이 namuwiki.json 파일이라고 가정)
 2. `java -Dfile.encoding=UTF8 -jar biryo.jar namuwiki.json`
   * mdx only 버전용 HTML을 만들고 싶으면 `java -Dfile.encoding=UTF-8 -jar biryo.jar -inline namuwiki.json` 
-3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 MdxBuilder의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
+3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 [MdxBuilder](https://www.mdict.cn/wp/?page_id=5325&lang=en)의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
   * mdx only 용은 Data에 아무것도 넣지 않습니다.
 4. MdxBuilder의 포맷에는 `MDict(Html)`, Encoding엔 `UTF-8(Unicode)`를 선택합니다.
   * MdxBuilder 4.0버전에선 Sorting locale만 Korean으로 설정하면 됩니다. 
@@ -149,9 +146,9 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 ## TODO
 
 * Fix Bugs (especially Tables)
-* List, Macro, etc...
-* Multi-threading w/ Akka more Elegantly
+* List, etc...
 * Fine commenting
+* Raw string-only Output
 * Capability of making another libraries  (e.g. making raw-text file for machine learning...)
 
 ## Issues
