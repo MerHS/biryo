@@ -524,11 +524,12 @@ object NamuAST {
     override def mkString = s"<pre><code>$value</code></pre>"
   }
   // {{{#!folding $title\n $value}}}
-  case class FoldingBlock(title: String, value: NamuMark) extends NamuMark {
+  case class FoldingBlock(title: String, value: NamuMark) extends HasNamu {
     override def mkString =
       s"<dl ${c(foldingClass)}>" +
         s"<dt>$title</dt>" +
         s"<dd>${value.mkString}</dd></dl>"
+    def constructor(nm: NamuMark) = FoldingBlock(title, nm)
   }
 
   // {{{#!wiki style="$style" $value}}}

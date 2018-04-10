@@ -400,6 +400,12 @@ class WikiParserSpec extends Specification {
         parseAll(testFolding) === lineTableMaker(RS("결과"), NA.FoldingBlock("접기", RS("【내용 1】")))
       }
 
+      "with Table" in {
+        println(renderAll("test", "{{{#!folding 접기\n||<tablewidth=100%>값||}}}"))
+
+        parseAll("{{{#!folding 접기\n||값||}}}") === NA.FoldingBlock("접기", lineTableMaker(RS("값")))
+      }
+
       "with Table in Table" in {
         var testFolding = "||{{{#!folding 접기\n||값||}}}||"
         var testFoldingParsed =

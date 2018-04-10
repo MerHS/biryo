@@ -97,7 +97,8 @@ class HTMLRenderer(private val katex: KatexRenderer) {
         "<a name=\"bottom\"></a>" +
         "</body>" +
         includeScriptListRenderer(includes) +
-        """<script src="after.js"></script>"""
+        """<script src="after.js"></script>""" +
+        (if (hasMathBlock) """<script src="mathafter.js"></script>""" else "")
     }
   }
 

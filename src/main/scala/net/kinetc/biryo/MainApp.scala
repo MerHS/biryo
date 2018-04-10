@@ -58,20 +58,20 @@ object MainApp extends App {
     throw new IllegalArgumentException(filename + "does not exist.")
 
   val frameSourceFolderPath = "./mdict-data"
-
   val fsfFile = new File(frameSourceFolderPath)
-  if (fsfFile.exists && fsfFile.isDirectory) {
+
+  if (!printRaw && fsfFile.exists && fsfFile.isDirectory) {
     fsfFile
       .listFiles()
       .filter(_.getName.startsWith("틀-"))
       .foreach(_.delete())
+
+    val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
+    HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
+    cssSource.close()
   } else {
     throw new IllegalArgumentException(frameSourceFolderPath + " folder does not exist.")
   }
-
-  val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
-  HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
-  cssSource.close()
 
 
   // ---- Making Actors ----
