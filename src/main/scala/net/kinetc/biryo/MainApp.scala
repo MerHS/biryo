@@ -2,11 +2,11 @@ package net.kinetc.biryo
 
 import java.io.File
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.routing.SmallestMailboxPool
 import com.typesafe.config.ConfigFactory
-import net.kinetc.biryo.actor.JsonActor.{Arguments, DoParse}
 import net.kinetc.biryo.actor._
+import net.kinetc.biryo.parser.JsonParser.{DoParse, ParseOptions}
 import net.kinetc.biryo.renderer.HTMLRenderer
 
 import scala.io.Source
@@ -15,7 +15,17 @@ object MainApp extends App {
 
   val helpText =
     """
-      |usage: java -jar biryo.jar [-inline|-raw] <filename>
+      |usage: java -jar biryo.jar [-inline|-raw|-thread [number]|-block] <filename>
+      |options:
+      |  -nonblock: 파일을 읽는 스레드와 JSON을 파싱하는 스레드를 분리합니다.
+      |           하드디스크 등 파일을 읽는 드라이브가 현격히 느릴 경우 사용 가능하지만
+      |           NVMe SSD 등 파일을 읽는 속도가 극단적으로 빠를 경우 모든 파일을 한번에 읽어들여 Java 메모리가 부족해질 수 있습니다.
+      |           (메모리가 16GB 이상일 경우 -Xmx10g 이상을 적용하면 될 수도 있습니다)
+      |  -inline: CSS 값을 link로 빼지 않고 각 문서에 인라이닝 시킵니다.
+      |           mdd 파일을 읽지 못하는 구형 MDict, PMP에서 문서를 읽을 시 이 옵션을 적용해야 합니다.
+      |  -thread (숫자): JSON 파서 스레드(1개) + MDict 데이터 생성 스레드(n-1개)의 개수를 조정합니다.
+      |                  CPU가 4스레드 이하일시 디폴트 3, 초과시 (CPU 스레드 수 - 2) 입니다. (2는 IO 스레드용)
+      |  -raw: 나무마크를 파싱하지 않고 나무위키 문법이 그대로 적힌 문서를 만듭니다.
     """.stripMargin
 
 
@@ -25,30 +35,45 @@ object MainApp extends App {
   var filename = ""
   var useInlineCSS = false
   var printRaw = false
-  var blocking = false
+  var blocking = true
+  var poolSize = {
+    val coreSize = Runtime.getRuntime.availableProcessors
+    if (coreSize == 1)
+      1
+    else if (coreSize <= 4)
+      2
+    else
+      coreSize - 3
+  }
 
   if (args.length == 0) {
     throw new IllegalArgumentException(helpText)
-  } else if (args.length == 1) {
-    filename = args(0)
-  } else {
-    args(0) match {
-      case "-inline" =>
-        useInlineCSS = true
-        HTMLRenderer.useInlineCSS = useInlineCSS
-      case "-raw" =>
-        printRaw = true
-      case "-block" =>
-        blocking = true
-      case _ =>
-        throw new IllegalArgumentException(helpText)
-    }
+  }
+  if (args.contains("-inline")) {
+    useInlineCSS = true
+    HTMLRenderer.useInlineCSS = useInlineCSS
+  }
+  if (args.contains("-raw")) {
+    printRaw = true
+  }
+  if (args.contains("-nonblock")) {
+    blocking = false
+  }
+  if (args.contains("-thread")) {
+    val argPos = args.indexOf("-thread")
 
-    filename = args(1)
+    if (argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)) {
+      poolSize = args(argPos + 1).toInt
+    } else {
+      throw new IllegalArgumentException(s"error: -thread 값에 오류가 있습니다\n$helpText")
+    }
   }
 
-  val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
+  ExitActor.shutdownCount = poolSize * 2
 
+  filename = args.last
+
+  val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
   // ---- Reading Files ----
 
@@ -88,12 +113,9 @@ object MainApp extends App {
       |}
     """.stripMargin)
 
-  val poolSize = {
-    val coreSize = Runtime.getRuntime.availableProcessors
-    if (coreSize == 1) 1 else coreSize - 1
-  }
 
-  println(s"Parse Start with ${poolSize + 1} Threads")
+
+  println(s"Parse Start with ${poolSize + 1} NamuMark Parser Threads")
 
   val actorSystem = ActorSystem("namuParser", ConfigFactory.load(config))
   val exitActor = actorSystem.actorOf(ExitActor.props(), "exitActor")
@@ -103,8 +125,18 @@ object MainApp extends App {
     MDictMaker.props(printer, framePrinter).withRouter(SmallestMailboxPool(poolSize)),
     "mdictMaker"
   )
-  val jsonActor = actorSystem.actorOf(JsonActor.props(Arguments(printRaw, useInlineCSS, blocking), mdictMakerRouter), "jsonActor")
 
-  jsonActor ! DoParse(filename)
+  val parseOptions = ParseOptions(printRaw, useInlineCSS, blocking)
+
+  val jsonParserActor = actorSystem.actorOf(
+    JsonParserActor.props(parseOptions, mdictMakerRouter), "jsonParserActor"
+  )
+  val mainActor: ActorRef = if (blocking) {
+    actorSystem.actorOf(BlockingInputActor.props(parseOptions, mdictMakerRouter), "jsonActor")
+  } else {
+    actorSystem.actorOf(NonBlockingInputActor.props(parseOptions, jsonParserActor), "jsonActor")
+  }
+
+  mainActor ! DoParse(filename)
 }
 

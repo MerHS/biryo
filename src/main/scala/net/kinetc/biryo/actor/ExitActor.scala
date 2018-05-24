@@ -3,19 +3,19 @@ package net.kinetc.biryo.actor
 import akka.actor.{Actor, Props}
 
 object ExitActor {
+  var shutdownCount = {
+    val coreSize = Runtime.getRuntime.availableProcessors
+    if (coreSize == 1) 1 else coreSize - 1
+  } * 2
+
   def props(): Props = Props(new ExitActor)
 
   case object Exit
 }
 
 class ExitActor extends Actor {
-
   import ExitActor._
 
-  val shutdownCount = {
-    val coreSize = Runtime.getRuntime.availableProcessors
-    if (coreSize == 1) 1 else coreSize - 1
-  } * 2
 
   var exitCount = 0
   def receive = {

@@ -132,6 +132,7 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 1. [나무위키 데이터베이스 덤프](https://namu.wiki/w/%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4:%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84?from=%EB%82%98%EB%AC%B4%EC%9C%84%ED%82%A4%20%EB%8D%B0%EC%9D%B4%ED%84%B0%EB%B2%A0%EC%9D%B4%EC%8A%A4%20%EB%8D%A4%ED%94%84)를 받고 압축을 풀어 jar파일과 같은 경로에 넣습니다. (이름이 namuwiki.json 파일이라고 가정)
 2. `java -Dfile.encoding=UTF8 -jar biryo.jar namuwiki.json`
   * mdx only 버전용 HTML을 만들고 싶으면 `java -Dfile.encoding=UTF-8 -jar biryo.jar -inline namuwiki.json` 
+  * PowerShell 등에서 `오류: 기본 클래스 .encoding=UTF-8을(를) 찾거나 로드할 수 없습니다.` 등의 에러가 뜨는 경우 `java "-Dfile.encoding=UTF8" -jar biryo.jar namuwiki.json`로 시도해보시기 바랍니다.
 3. 만들어진 `namu.txt` (또는 `namu_inline.txt`)를 [MdxBuilder](https://www.mdict.cn/wp/?page_id=5325&lang=en)의 Source에, Data에는 `mdict-data`폴더의 경로를 넣고, Target에는 출력할 mdx파일의 경로 및 이름을 넣습니다.
   * mdx only 용은 Data에 아무것도 넣지 않습니다.
 4. MdxBuilder의 포맷에는 `MDict(Html)`, Encoding엔 `UTF-8(Unicode)`를 선택합니다.
@@ -140,8 +141,22 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 6. 만들어진 mdx, mdd를 MDict가 있는 기기에 넣습니다. (반드시 mdx와 mdd가 같은 경로에 있어야 합니다.)
 
 
-멀티스레드 환경에서 작동하며, 2017년 3월 데이터를 기준으로 488745개의 표제어를 HTML txt 파일로 변환하는데 약 14분정도 소요됩니다. (i7-4790 기준)
+멀티스레드 환경에서 작동하며, 2018년 3월 데이터를 기준으로 565985개의 표제어를 HTML txt 파일로 변환하는데 빠르면 2분정도 소요됩니다. (Ryzen 2700X, NVMe SSD 970 EVO 500GB 기준)
 
+
+## Options
+
+1. -inline: CSS 값을 link로 빼지 않고 각 문서에 인라이닝 시킵니다.
+mdd 파일을 읽지 못하는 구형 MDict, PMP에서 문서를 읽을 시 이 옵션을 적용해야 합니다.
+
+2. -thread (숫자): JSON 파서 스레드(1개) + MDict 데이터 생성 스레드(n-1개)의 개수를 조정합니다.
+CPU가 4스레드 이하일시 디폴트 3, 초과시 (CPU 스레드 수 - 2) 입니다. (2는 IO 스레드용)
+
+3. -raw: 나무마크를 파싱하지 않고 나무위키 문법이 그대로 적힌 문서를 만듭니다.
+
+4. -nonblock: 파일을 읽는 스레드와 JSON을 파싱하는 스레드를 분리합니다. (비권장)
+하드디스크 등 파일을 읽는 드라이브가 현격히 느릴 경우 사용 가능하지만 NVMe SSD 등 파일을 읽는 속도가 극단적으로 빠를 경우 모든 파일을 한번에 읽어들여 Java 메모리가 부족해질 수 있습니다.
+(메모리가 16GB 이상일 경우 -Xmx10g 이상을 적용하면 될 수도 있습니다) 
 
 ## TODO
 

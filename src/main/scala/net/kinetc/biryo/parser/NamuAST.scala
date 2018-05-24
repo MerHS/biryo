@@ -329,13 +329,13 @@ object NamuAST {
         s"<div ${c(tableDivClass)}>${value.mkString}</div>"
       }
 
-    override def postTrav(f: (NamuMark) => Unit): Unit = {
+    override def postTrav(f: NamuMark => Unit): Unit = {
       caption.foreach(_.postTrav(f))
       value.postTrav(f)
       f(this)
     }
 
-    override def preTrav(f: (NamuMark) => Unit): Unit = {
+    override def preTrav(f: NamuMark => Unit): Unit = {
       f(this)
       caption.foreach(_.preTrav(f))
       value.preTrav(f)

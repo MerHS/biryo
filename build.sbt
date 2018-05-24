@@ -2,8 +2,8 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "net.kinetc",
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.11.8", "2.12.1"),
+  scalaVersion := "2.12.6",
+  crossScalaVersions := Seq("2.11.12", "2.12.6"),
   version := "1.0.0-SNAPSHOT",
   description := "NamuMark AST Parser / HTML Transcompiler for MDict",
   name := "biryo",
@@ -36,11 +36,12 @@ lazy val root = (project in file(".")).
     ),
     libraryDependencies ++= Seq(
       scalaTest % Test,
-      "org.spire-math" %% "jawn-parser" % "0.10.4",
-      "org.spire-math" %% "jawn-ast" % "0.10.4",
-      "com.typesafe.akka" %% "akka-actor" % "2.5.1",
+      "org.spire-math" %% "jawn-parser" % "0.12.1",
+      "org.spire-math" %% "jawn-ast" % "0.12.1",
+      "com.typesafe.akka" %% "akka-actor" % "2.5.12",
       "org.parboiled" %% "parboiled" % "2.1.4",
       "org.specs2" %% "specs2-core" % "3.8.9" % "test"
     ),
+
     scalacOptions in Test ++= Seq("-Yrangepos")
   )

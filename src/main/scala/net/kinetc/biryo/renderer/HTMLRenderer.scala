@@ -49,7 +49,7 @@ object HTMLRenderer {
   }
 
   def deleteExternalTag(s: String): String = {
-    s.replaceAll("<embed(.|\\v)*</embed>|<iframe(.|\\v)*</iframe>", "")
+    s.replaceAll("<embed(.|\\v)*</embed>|<iframe(.|\\v)*</iframe>|<param(.|\\v)*</param>", "")
       .replaceAll("href=\"http://", "href=\"entry://")
       .replaceAll("href=\"/w/", "href=\"entry://")
   }
