@@ -19,8 +19,8 @@ object MainApp extends App {
       |options:
       |  -inline: CSS 값을 link로 빼지 않고 각 문서에 인라이닝 시킵니다.
       |           mdd 파일을 읽지 못하는 구형 MDict, PMP에서 문서를 읽을 시 이 옵션을 적용해야 합니다.
-      |  -thread (숫자): JSON 파서 스레드(1개) + MDict 데이터 생성 스레드(n-1개)의 개수를 조정합니다.
-      |                  CPU가 4스레드 이하일시 디폴트 3, 초과시 (CPU 스레드 수 - 2) 입니다. (2는 IO 스레드용)
+      |  -thread (숫자): JSON 파서 스레드(1개) + MDict 데이터 생성 스레드(n-1개)의 개수를 조정합니다. (최소 2)
+      |                  CPU가 4스레드 이하일시 디폴트 4, 초과시 (CPU 스레드 수 - 2) 입니다. (2는 IO 스레드용)
       |  -raw: 나무마크를 파싱하지 않고 나무위키 문법이 그대로 적힌 문서를 만듭니다.
     """.stripMargin
 
@@ -59,7 +59,10 @@ object MainApp extends App {
     val argPos = args.indexOf("-thread")
 
     if (argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)) {
-      poolSize = args(argPos + 1).toInt
+      poolSize = args(argPos - 1).toInt
+      if (poolSize <= 0) {
+        throw new IllegalArgumentException(s"error: -thread 값이 2 미만입니다\n$helpText")
+      }
     } else {
       throw new IllegalArgumentException(s"error: -thread 값에 오류가 있습니다\n$helpText")
     }
