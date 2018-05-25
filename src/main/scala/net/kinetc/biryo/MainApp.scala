@@ -59,7 +59,7 @@ object MainApp extends App {
     val argPos = args.indexOf("-thread")
 
     if (argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)) {
-      poolSize = args(argPos - 1).toInt
+      poolSize = args(argPos + 1).toInt - 1
       if (poolSize <= 0) {
         throw new IllegalArgumentException(s"error: -thread 값이 2 미만입니다\n$helpText")
       }
