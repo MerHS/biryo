@@ -37,7 +37,7 @@ object MainApp extends App {
     if (coreSize == 1)
       1
     else if (coreSize <= 4)
-      2
+      3
     else
       coreSize - 3
   }
