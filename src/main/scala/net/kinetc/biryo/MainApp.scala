@@ -15,12 +15,8 @@ object MainApp extends App {
 
   val helpText =
     """
-      |usage: java -jar biryo.jar [-inline|-raw|-thread [number]|-block] <filename>
+      |usage: java -jar biryo.jar [-inline|-raw|-thread [number]] <filename>
       |options:
-      |  -nonblock: 파일을 읽는 스레드와 JSON을 파싱하는 스레드를 분리합니다.
-      |           하드디스크 등 파일을 읽는 드라이브가 현격히 느릴 경우 사용 가능하지만
-      |           NVMe SSD 등 파일을 읽는 속도가 극단적으로 빠를 경우 모든 파일을 한번에 읽어들여 Java 메모리가 부족해질 수 있습니다.
-      |           (메모리가 16GB 이상일 경우 -Xmx10g 이상을 적용하면 될 수도 있습니다)
       |  -inline: CSS 값을 link로 빼지 않고 각 문서에 인라이닝 시킵니다.
       |           mdd 파일을 읽지 못하는 구형 MDict, PMP에서 문서를 읽을 시 이 옵션을 적용해야 합니다.
       |  -thread (숫자): JSON 파서 스레드(1개) + MDict 데이터 생성 스레드(n-1개)의 개수를 조정합니다.
@@ -57,7 +53,7 @@ object MainApp extends App {
     printRaw = true
   }
   if (args.contains("-nonblock")) {
-    blocking = false
+    // blocking = false
   }
   if (args.contains("-thread")) {
     val argPos = args.indexOf("-thread")
