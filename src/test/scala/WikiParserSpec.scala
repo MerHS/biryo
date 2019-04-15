@@ -86,6 +86,7 @@ class WikiParserSpec extends Specification {
       )
 
       parseAll("== {{{ test }}} ==") === NA.RawHeadings(IS(" test ", isMultiLine=false), 2)
+      parseAll("==# {{{ test }}} #==") === NA.RawHeadings(IS(" test ", isMultiLine=false), 2)
       parseAll("== {{{ test }}} ==\n") ===
         paraMaker(NA.RawHeadings(IS(" test ", isMultiLine=false), 2), NA.BR)
       parseAll("=== {{{ test }}} ==") ===
@@ -510,6 +511,11 @@ class WikiParserSpec extends Specification {
       "src/test/hangong.txt" in {
         val namuHelpTxt = getFromFile("src/test/hangong.txt")
         renderAll("src/test/hangong.txt", namuHelpTxt).isInstanceOf[String] === true
+      }
+
+      "src/test/premium_bus_0310.txt" in {
+        val namuHelpTxt = getFromFile("src/test/premium_bus_0310.txt")
+        renderAll("src/test/premium_bus_0310.txt", namuHelpTxt).isInstanceOf[String] === true
       }
     }
   }

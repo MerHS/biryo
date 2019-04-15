@@ -608,7 +608,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     (4 to 10).times(ch('-')) ~ FetchLineEnd ~ push(NA.HR)
   }
 
-  def Headings = rule { H6 | H5 | H4 | H3 | H2 | H1 }
+  def Headings = rule { HeadingsOpen | HeadingsClosed }
+  def HeadingsOpen = rule { H6 | H5 | H4 | H3 | H2 | H1 }
+  def HeadingsClosed = rule { H1Closed | H2Closed | H3Closed | H4Closed | H5Closed | H6Closed }
 
   def H1 = rule { LineMatchBlock("= ", " =") ~ CheckLineEnd ~> (NA.RawHeadings(_, 1))}
   def H2 = rule { LineMatchBlock("== ", " ==") ~ CheckLineEnd ~> (NA.RawHeadings(_, 2))}
@@ -616,6 +618,13 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def H4 = rule { LineMatchBlock("==== ", " ====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 4))}
   def H5 = rule { LineMatchBlock("===== ", " =====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 5))}
   def H6 = rule { LineMatchBlock("====== ", " ======") ~ CheckLineEnd ~> (NA.RawHeadings(_, 6))}
+
+  def H1Closed = rule { LineMatchBlock("= ", " =") ~ CheckLineEnd ~> (NA.RawHeadings(_, 1))}
+  def H2Closed = rule { LineMatchBlock("== ", " ==") ~ CheckLineEnd ~> (NA.RawHeadings(_, 2))}
+  def H3Closed = rule { LineMatchBlock("=== ", " ===") ~ CheckLineEnd ~> (NA.RawHeadings(_, 3))}
+  def H4Closed = rule { LineMatchBlock("==== ", " ====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 4))}
+  def H5Closed = rule { LineMatchBlock("===== ", " =====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 5))}
+  def H6Closed = rule { LineMatchBlock("====== ", " ======") ~ CheckLineEnd ~> (NA.RawHeadings(_, 6))}
 
   def StrikeMinus = rule { LineBlock("--") ~> NA.Strike }
   def StrikeTilde = rule { LineBlock("~~") ~> NA.Strike }
