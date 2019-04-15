@@ -404,7 +404,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   // 매크로는 대소문 구분 X
 
   def LineStartMacro: Rule1[NM] = rule { FootNoteList | TableOfContents }
-  def OtherMacro: Rule1[NM] = rule { BR | Anchor | Include | YoutubeLink | Age | DateMacro | DDay | PageCount }
+  def OtherMacro: Rule1[NM] = rule {
+    BR | Anchor | Include | YoutubeLink | KakaoLink | NicoLink | Age | DateMacro | DDay | PageCount | RubyMacro
+  }
 
   def PageCount = rule { PageCountAll | PageCountNamespaced }
   def PageCountAll = rule { ICCommandStr("[pagecount]") ~ push(NA.PageCount(""))}
@@ -441,6 +443,13 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def NicoLink = rule {
     ICCommandStr("[nicovideo(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
       ((args: Seq[String]) => NA.NicoLink(args.head.trim, argParse(args.tail)))
+  }
+  def RubyMacro = rule {
+    ICCommandStr("[ruby(") ~ LineStringExceptC(',') ~ WL.? ~ "," ~ WL.? ~ ICCommandStr("ruby=") ~ (
+      LineStringExceptC(',') ~ WL.? ~ "," ~ WL.? ~ ICCommandStr("color=") ~ LineStringExceptC(')') |
+      LineStringExceptC(')') ~ push("")) ~ ")]" ~> ((str: String, ruby: String, color: String) => {
+        NA.RubyMacro(str, ruby, if (color == "") None else Some(color))
+    })
   }
 
   // Rule 4. Links & Anchors (Double Brackets)
@@ -626,12 +635,12 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
   def H5 = rule { LineMatchBlock("===== ", " =====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 5))}
   def H6 = rule { LineMatchBlock("====== ", " ======") ~ CheckLineEnd ~> (NA.RawHeadings(_, 6))}
 
-  def H1Closed = rule { LineMatchBlock("= ", " =") ~ CheckLineEnd ~> (NA.RawHeadings(_, 1))}
-  def H2Closed = rule { LineMatchBlock("== ", " ==") ~ CheckLineEnd ~> (NA.RawHeadings(_, 2))}
-  def H3Closed = rule { LineMatchBlock("=== ", " ===") ~ CheckLineEnd ~> (NA.RawHeadings(_, 3))}
-  def H4Closed = rule { LineMatchBlock("==== ", " ====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 4))}
-  def H5Closed = rule { LineMatchBlock("===== ", " =====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 5))}
-  def H6Closed = rule { LineMatchBlock("====== ", " ======") ~ CheckLineEnd ~> (NA.RawHeadings(_, 6))}
+  def H1Closed = rule { LineMatchBlock("=# ", " #=") ~ CheckLineEnd ~> (NA.RawHeadings(_, 1))}
+  def H2Closed = rule { LineMatchBlock("==# ", " #==") ~ CheckLineEnd ~> (NA.RawHeadings(_, 2))}
+  def H3Closed = rule { LineMatchBlock("===# ", " #===") ~ CheckLineEnd ~> (NA.RawHeadings(_, 3))}
+  def H4Closed = rule { LineMatchBlock("====# ", " #====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 4))}
+  def H5Closed = rule { LineMatchBlock("=====# ", " #=====") ~ CheckLineEnd ~> (NA.RawHeadings(_, 5))}
+  def H6Closed = rule { LineMatchBlock("======# ", " #======") ~ CheckLineEnd ~> (NA.RawHeadings(_, 6))}
 
   def StrikeMinus = rule { LineBlock("--") ~> NA.Strike }
   def StrikeTilde = rule { LineBlock("~~") ~> NA.Strike }

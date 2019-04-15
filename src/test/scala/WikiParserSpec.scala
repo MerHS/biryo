@@ -305,6 +305,9 @@ class WikiParserSpec extends Specification {
       parseAll("[datetime]") === NA.DateMacro
       parseAll("[dday(2015-12-34)]") === NA.DDay("2015-12-34")
       parseAll("[age(2015-12-34)]") === NA.AgeMacro("2015-12-34")
+
+      parseAll("[ruby(밑, ruby=루비, color=red)]") === NA.RubyMacro("밑", "루비", Some("red"))
+      parseAll("[ruby(밑, ruby=루비)]") === NA.RubyMacro("밑", "루비", None)
     }
 
 
@@ -382,13 +385,6 @@ class WikiParserSpec extends Specification {
     }
 
     "parse Basic Tables" in {
-      print("align right: ")
-      println(parseAll("|| Test||"))
-      print("align left: ")
-      println(parseAll("||Test ||"))
-      print("align center: ")
-      println(parseAll("|| Test ||"))
-
       var parser = new WikiParser("||Test||")
       parse(parser, parser.TD.run()) === NA.TD(RS("Test"), List[NA.TableStyle]())
 

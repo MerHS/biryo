@@ -203,17 +203,17 @@ object NamuAST {
 
   sealed trait ListType
   // * star -> <ul> ~~ </ul>
-  case object Type_star extends ListType
+  case object TypeStar extends ListType
   // 1.#42 -> <ol type="1" start="42"> ~~ </ol>
-  case class Type_1(offset: Int = 1) extends ListType
+  case class TypeOne(offset: Int = 1) extends ListType
   // i.#42 -> <ol type="i" start="42"> ~~ </ol>
-  case class Type_i(offset: Int = 1) extends ListType
+  case class TypeRomanLow(offset: Int = 1) extends ListType
   // I.#42 -> <ol type="I" start="42"> ~~ </ol>
-  case class Type_I(offset: Int = 1) extends ListType
+  case class TypeRomanUp(offset: Int = 1) extends ListType
   // a.#42 -> <ol type="a" start="42"> ~~ </ol>
-  case class Type_a(offset: Int = 1) extends ListType
+  case class TypeAlphaLow(offset: Int = 1) extends ListType
   // A.#42 -> <ol type="A" start="42"> ~~ </ol>
-  case class Type_A(offset: Int = 1) extends ListType
+  case class TypeAlphaUp(offset: Int = 1) extends ListType
 
 
   ////// ----- Indent ------ //////
@@ -491,6 +491,13 @@ object NamuAST {
   case class NicoLink(id: String, args: Map[String, String]) extends NamuMark {
     // Fallback to Link (For MDict)
     override def mkString = s"<a href=${toQ(s"entry://https://www.nicovideo.jp/watch/$id")}>[유튜브 링크]</a>"
+  }
+
+  case class RubyMacro(word: String, ruby: String, color: Option[String]) extends NamuMark {
+    override def mkString = color match {
+      case Some(c) => s"<ruby><rb>$word</rb><rp>(</rp><rt><span style=${toQ(c)}>$ruby</span></rt><rp>)</rp></ruby>"
+      case None => s"<ruby><rb>$word</rb><rp>(</rp><rt>$ruby</rt><rp>)</rp></ruby>"
+    }
   }
 
   ////// ------ Double Bracket Links ------ //////

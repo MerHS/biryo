@@ -73,6 +73,7 @@
 	* 15.6. 각주 (`FootNoteList`)
 	* 15.7. 나이 (`AgeMacro`)
 	* 15.8. 남은 날 (`DDay`)
+	* 15.9. 루비 문자 (`RubyMacro`)
 * 17\. 테이블(표) (`TableWrapper`)
 	* 테이블의 각 항목은 `Table` `TR`, `TD`와 같은 HTML요소, `TableAlign`, `TableStyle`등의 CSS 요소로 구현되어 있음
 * 18\. 수식 (`Math`)
