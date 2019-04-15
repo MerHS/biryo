@@ -276,6 +276,12 @@ class WikiParserSpec extends Specification {
       parseAll("[youtube(woei2928fa,width=640,height=130)]") === NA.YoutubeLink(
         "woei2928fa", Map("width" -> "640", "height" -> "130")
       )
+      parseAll("[kakaotv(woei2928fa,width=640,height=130)]") === NA.KakaoLink(
+        "woei2928fa", Map("width" -> "640", "height" -> "130")
+      )
+      parseAll("[nicovideo(woei2928fa,width=640,height=130)]") === NA.NicoLink(
+        "woei2928fa", Map("width" -> "640", "height" -> "130")
+      )
 
       parseAll("[anchor(test)]") === NA.Anchor("test")
 

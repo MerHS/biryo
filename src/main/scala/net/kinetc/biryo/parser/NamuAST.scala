@@ -483,6 +483,15 @@ object NamuAST {
     override def mkString = s"<a href=${toQ(s"entry://https://www.youtube.com/watch?v=$id")}>[유튜브 링크]</a>"
   }
 
+  case class KakaoLink(id: String, args: Map[String, String]) extends NamuMark {
+    // Fallback to Link (For MDict)
+    override def mkString = s"<a href=${toQ(s"entry://https://tv.kakao.com/v/$id")}>[유튜브 링크]</a>"
+  }
+
+  case class NicoLink(id: String, args: Map[String, String]) extends NamuMark {
+    // Fallback to Link (For MDict)
+    override def mkString = s"<a href=${toQ(s"entry://https://www.nicovideo.jp/watch/$id")}>[유튜브 링크]</a>"
+  }
 
   ////// ------ Double Bracket Links ------ //////
 

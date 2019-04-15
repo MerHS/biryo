@@ -41,7 +41,8 @@
     * 아래첨자 (`Sub`)
   * 4.2. 텍스트 크기 (`SizeBlock`)
   * 4.3. 텍스트 색상 (`ColorBlock`)
-  * 4.4. 인라인 코드 (`InlineString`)
+  * 4.4. 줄바꿈 기준 (`WikiBlock`)
+  * 4.5. 인라인 코드 (`InlineString`)
 * 5\. 하이퍼링크 (`DocLink(NamuHref, Option[NamuMark])`)
 	* 5.1. 링크와 출력이 같은 하이퍼링크 (`NormalHref`)
 	* 5.2. 링크와 출력이 다른 하이퍼링크 (`Some[NamuMark]`)
@@ -52,24 +53,26 @@
 * 6\. 리다이렉트 (`Redirect`)
 * 7\. 이미지 첨부
 	* 7.1. 나무위키 자체 이미지 업로더 (`FileLink`)
-	* 7.1.1. 이미지 크기 및 위치 조절 (`htmlOption`)
+	* 7.2. 이미지 크기 및 위치 조절 (`htmlOption`)
 * 8\. 동영상 첨부
-	* 8.1. 유튜브 동영상 첨부 (`YoutubeLink`)
-* 9\. 글상자 (`WordBox`)
-* 11\. 각주 (`FootNote`, `LinkOnlyFn`)
-* 12\. 들여쓰기 (`Indent`)
-* 13\. 인용문 (`BlockQuote`)
-* 14\. 수평줄 (`HR`)
-* 15\. 주석 (`Comment`)
-* 16\. 매크로
-	* 16.1. date (datetime) (`DateMacro`)
-	* 16.2. br (`BR`)
-	* 16.3. pagecount (`PageCount`)
-	* 16.4. include (`Include`)
-	* 16.5. 목차 (`TableOfContents`)
-	* 16.6. 각주 (`FootNoteList`)
-	* 16.7. 나이 (`AgeMacro`)
-	* 16.8. 남은 날 (`DDay`)
+	* 8.1. 유튜브/카카오 동영상 첨부 (`YoutubeLink`, `KakaoLink`)
+	* 8.2. 니코니코 동화 동영상 첨부 (`NicoLink`)
+	* 8.3. HTML5를 이용한 기타 동영상 첨부 (`HTMLBlock`)
+* 9\. (Deperecated) 글상자 (`WordBox`)
+* 10\. 각주 (`FootNote`, `LinkOnlyFn`)
+* 11\. 들여쓰기 (`Indent`)
+* 12\. 인용문 (`BlockQuote`)
+* 13\. 수평줄 (`HR`)
+* 14\. 주석 (`Comment`)
+* 15\. 매크로
+	* 15.1. date (datetime) (`DateMacro`)
+	* 15.2. br (`BR`)
+	* 15.3. pagecount (`PageCount`)
+	* 15.4. include (`Include`)
+	* 15.5. 목차 (`TableOfContents`)
+	* 15.6. 각주 (`FootNoteList`)
+	* 15.7. 나이 (`AgeMacro`)
+	* 15.8. 남은 날 (`DDay`)
 * 17\. 테이블(표) (`TableWrapper`)
 	* 테이블의 각 항목은 `Table` `TR`, `TD`와 같은 HTML요소, `TableAlign`, `TableStyle`등의 CSS 요소로 구현되어 있음
 * 18\. 수식 (`Math`)
@@ -84,17 +87,15 @@
 * 자동 리다이렉트
   * MDict에 자동 리다이렉트 기능이 구현되어있으나, 앵커 사용 불가 및 디버깅 용도 등으로 인해 해당 링크를 띄우는 식으로만 구현하였습니다. 
 * 이미지, 동영상 표시
-  * 이미지를 비롯한 외부 파일 링크는 모두 해당 표제어나 URL로 가는 텍스트 링크로 구현되어있습니다. 
+  * 이미지를 비롯한 모든 파일 링크는 해당 표제어나 URL로 가는 텍스트 링크로 구현되어 있습니다. 
 * 문단 접기
   * MDict 부하를 줄이기 위해 구현하지 않음
 * 5.7 [], |, \, #가 제목에 쓰이거나 제목이 /로 시작하는 문서로 하이퍼링크 걸기
   * \#이 링크에 들어가면 MDict 및 MdxBuilder의 버그로 #을 %23으로 변경해도 무조건 anchor로 처리됩니다.
-* 7.2. 외부 이미지 링크 (현재 지원 종료)
-  * 구현 계획 없음
-* 10\. 리스트
+* 9\. 리스트
   * 들여쓰기는 구현되어 있으므로 리스트 첨자를 제외한 부분은 거의 비슷하게 보입니다.
-* 16\. 매크로 중 시간과 관련된 값은 파싱한 날짜를 기준으로 처리됩니다.
-* 16.3. pagecount
+* 15\. 매크로 중 시간과 관련된 값은 파싱한 날짜를 기준으로 처리됩니다.
+* 15.3. pagecount
   * 파싱은 되지만 실제 구현은 JS로 동적으로 해야 하기 때문에 (자주 쓰이지 않는 기능이므로) 부하를 줄이기 위해 실제값으로 렌더링되지 않습니다.
 * 16.4. include (틀 제외)
   * 현재 틀은 외부 JS 형식으로 변환하여 mdd에 저장하여 읽고있기 때문에 mdx-only 버전에선 해당 틀 문서로 가는 링크로 렌더링됩니다.

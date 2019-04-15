@@ -434,7 +434,14 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     ICCommandStr("[youtube(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
       ((args: Seq[String]) => NA.YoutubeLink(args.head.trim, argParse(args.tail)))
   }
-
+  def KakaoLink = rule {
+    ICCommandStr("[kakaotv(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
+      ((args: Seq[String]) => NA.KakaoLink(args.head.trim, argParse(args.tail)))
+  }
+  def NicoLink = rule {
+    ICCommandStr("[nicovideo(") ~ capture(noneOf(",)\n").+).+(',') ~ CommandStr(")]") ~>
+      ((args: Seq[String]) => NA.NicoLink(args.head.trim, argParse(args.tail)))
+  }
 
   // Rule 4. Links & Anchors (Double Brackets)
 
