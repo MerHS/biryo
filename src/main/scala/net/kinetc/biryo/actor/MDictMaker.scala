@@ -31,8 +31,8 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
   implicit val ec: ExecutionContext = context.system.dispatchers.lookup("biryo-blocking-dispatcher")
   val katex = new KatexRenderer
 
-  implicit val askTimeout = Timeout(2 minutes)
-  val compileTimeout = Timeout(2 seconds)
+  implicit val askTimeout = Timeout(1 minutes)
+  val compileTimeout = Timeout(10 seconds)
 
   var sendCount = 0
 

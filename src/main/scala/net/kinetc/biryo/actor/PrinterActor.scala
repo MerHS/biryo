@@ -55,7 +55,7 @@ class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
   override def postStop(): Unit = {
     println("close file")
     if (errorList.nonEmpty) {
-      val errorLog = new PrintWriter(path, "UTF-8")
+      val errorLog = new PrintWriter(s"error_${System.currentTimeMillis()}.log", "UTF-8")
       errorList.foreach(e => {
         println("parseError: " + e)
         errorLog.println(s"Parse Error / Timeout: $e")
