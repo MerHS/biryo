@@ -1,6 +1,7 @@
 package net.kinetc.biryo
 
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.routing.SmallestMailboxPool
@@ -9,6 +10,8 @@ import net.kinetc.biryo.actor._
 import net.kinetc.biryo.parser.JsonParser.{DoParse, ParseOptions}
 import net.kinetc.biryo.renderer.HTMLRenderer
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.io.Source
 
 object MainApp extends App {
@@ -137,5 +140,6 @@ object MainApp extends App {
   }
 
   mainActor ! DoParse(filename)
+  Await.ready(actorSystem.whenTerminated, Duration(10, TimeUnit.MINUTES))
 }
 
