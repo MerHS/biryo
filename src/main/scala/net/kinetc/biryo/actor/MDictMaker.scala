@@ -3,32 +3,42 @@ package net.kinetc.biryo.actor
 import akka.actor.{Actor, ActorRef, Props}
 import akka.util.Timeout
 import net.kinetc.biryo.parser.WikiParser
-import net.kinetc.biryo.renderer.{ASTPostProcessor, FrameRenderer, HTMLRenderer, KatexRenderer}
+import net.kinetc.biryo.renderer.{
+  ASTPostProcessor,
+  FrameRenderer,
+  HTMLRenderer,
+  KatexRenderer
+}
 import org.parboiled2.{ErrorFormatter, ParseError}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Created by KINETC on 2017-07-27.
+/** Created by KINETC on 2017-07-27.
   */
 object MDictMaker {
-  def props(printActor: ActorRef, framePrinterActor: ActorRef) = 
+  def props(printActor: ActorRef, framePrinterActor: ActorRef) =
     Props(new MDictMaker(printActor, framePrinterActor))
 
-  final case class MDictDoc(title: String, text: String, printRaw: Boolean=false)
+  final case class MDictDoc(
+      title: String,
+      text: String,
+      printRaw: Boolean = false
+  )
   final case class FrameDoc(title: String, text: String)
   case object ParseEnd
 }
 
-class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Actor {
+class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef)
+    extends Actor {
 
   import FramePrinterActor._
   import MDictMaker._
   import PrinterActor._
 
-  implicit val ec: ExecutionContext = context.system.dispatchers.lookup("biryo-blocking-dispatcher")
+  implicit val ec: ExecutionContext =
+    context.system.dispatchers.lookup("biryo-blocking-dispatcher")
   val katex = new KatexRenderer
 
   implicit val askTimeout = Timeout(1 minutes)
@@ -45,7 +55,8 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef) extends Acto
       parser.NamuMarkRule.run() match {
         case Success(result) =>
           val postResult = postProcessor.postProcessAST(result)
-          val compiledText = title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
+          val compiledText =
+            title + "\n" + renderer.generateHTML(title, postResult) + "\n</>"
 
           Some(compiledText)
         case Failure(e: ParseError) =>

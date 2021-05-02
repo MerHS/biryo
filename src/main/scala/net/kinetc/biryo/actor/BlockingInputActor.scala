@@ -7,11 +7,17 @@ import net.kinetc.biryo.parser.JsonParser.ParseOptions
 import net.kinetc.biryo.parser.{FileReadStream, JsonParser}
 
 object BlockingInputActor {
-  def props(options: ParseOptions, mdictMakerRouter: ActorRef) = Props(new BlockingInputActor(options, mdictMakerRouter))
+  def props(options: ParseOptions, mdictMakerRouter: ActorRef) = Props(
+    new BlockingInputActor(options, mdictMakerRouter)
+  )
 }
 
-class BlockingInputActor(val options: ParseOptions, val mdictMakerRouter: ActorRef)
-  extends Actor with JsonParser with FileReadStream {
+class BlockingInputActor(
+    val options: ParseOptions,
+    val mdictMakerRouter: ActorRef
+) extends Actor
+    with JsonParser
+    with FileReadStream {
   import JsonParser._
 
   override def sink(chunk: String): Unit = {
@@ -24,7 +30,7 @@ class BlockingInputActor(val options: ParseOptions, val mdictMakerRouter: ActorR
     mdictMakerRouter ! Broadcast(ParseEnd)
   }
 
-  def receive = {
-    case DoParse(fileName) => readFile(fileName)
+  def receive = { case DoParse(fileName) =>
+    readFile(fileName)
   }
 }

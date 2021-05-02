@@ -10,8 +10,11 @@ object NonBlockingInputActor {
     Props(new NonBlockingInputActor(options, jsonParserActor))
 }
 
-class NonBlockingInputActor(val options: ParseOptions, val jsonParserActor: ActorRef)
-  extends Actor with FileReadStream {
+class NonBlockingInputActor(
+    val options: ParseOptions,
+    val jsonParserActor: ActorRef
+) extends Actor
+    with FileReadStream {
   import JsonParser._
 
   override def sink(chunk: String): Unit = {
@@ -22,7 +25,7 @@ class NonBlockingInputActor(val options: ParseOptions, val jsonParserActor: Acto
     jsonParserActor ! FinishRead
   }
 
-  def receive = {
-    case DoParse(fileName) => readFile(fileName)
+  def receive = { case DoParse(fileName) =>
+    readFile(fileName)
   }
 }

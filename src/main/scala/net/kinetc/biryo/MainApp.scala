@@ -27,9 +27,7 @@ object MainApp extends App {
       |  -raw: 나무마크를 파싱하지 않고 나무위키 문법이 그대로 적힌 문서를 만듭니다.
     """.stripMargin
 
-
   // ---- Parsing Arguments ----
-
 
   var filename = ""
   var useInlineCSS = false
@@ -61,13 +59,19 @@ object MainApp extends App {
   if (args.contains("-thread")) {
     val argPos = args.indexOf("-thread")
 
-    if (argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)) {
+    if (
+      argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)
+    ) {
       poolSize = args(argPos + 1).toInt - 1
       if (poolSize <= 0) {
-        throw new IllegalArgumentException(s"error: -thread 값이 2 미만입니다\n$helpText")
+        throw new IllegalArgumentException(
+          s"error: -thread 값이 2 미만입니다\n$helpText"
+        )
       }
     } else {
-      throw new IllegalArgumentException(s"error: -thread 값에 오류가 있습니다\n$helpText")
+      throw new IllegalArgumentException(
+        s"error: -thread 값에 오류가 있습니다\n$helpText"
+      )
     }
   }
 
@@ -78,7 +82,6 @@ object MainApp extends App {
   val exportFile = if (useInlineCSS) "namu_inline.txt" else "namu.txt"
 
   // ---- Reading Files ----
-
 
   val namuFile = new File(filename)
   if (!namuFile.exists)
@@ -94,17 +97,17 @@ object MainApp extends App {
       .foreach(_.delete())
 
     val cssSource = Source.fromFile("./mdict-data/biryo.min.css", "UTF-8")
-    HTMLRenderer.inlineStyle = cssSource.getLines.map(_.trim).mkString("\n")
+    HTMLRenderer.inlineStyle = cssSource.getLines().map(_.trim).mkString("\n")
     cssSource.close()
   } else {
-    throw new IllegalArgumentException(frameSourceFolderPath + " folder does not exist.")
+    throw new IllegalArgumentException(
+      frameSourceFolderPath + " folder does not exist."
+    )
   }
-
 
   // ---- Making Actors ----
 
-  val config = ConfigFactory.parseString(
-    """
+  val config = ConfigFactory.parseString("""
       |biryo-blocking-dispatcher {
       |  type = Dispatcher
       |  executor = "thread-pool-executor"
@@ -115,31 +118,43 @@ object MainApp extends App {
       |}
     """.stripMargin)
 
-
-
   println(s"Parse Start with ${poolSize + 1} NamuMark Parser Threads")
 
   val actorSystem = ActorSystem("namuParser", ConfigFactory.load(config))
   val exitActor = actorSystem.actorOf(ExitActor.props(), "exitActor")
-  val printer = actorSystem.actorOf(PrinterActor.props(exportFile, exitActor), "printerActor")
-  val framePrinter = actorSystem.actorOf(FramePrinterActor.props(frameSourceFolderPath, exitActor), "framePrinterActor")
+  val printer = actorSystem.actorOf(
+    PrinterActor.props(exportFile, exitActor),
+    "printerActor"
+  )
+  val framePrinter = actorSystem.actorOf(
+    FramePrinterActor.props(frameSourceFolderPath, exitActor),
+    "framePrinterActor"
+  )
   val mdictMakerRouter = actorSystem.actorOf(
-    MDictMaker.props(printer, framePrinter).withRouter(SmallestMailboxPool(poolSize)),
+    MDictMaker
+      .props(printer, framePrinter)
+      .withRouter(SmallestMailboxPool(poolSize)),
     "mdictMaker"
   )
 
   val parseOptions = ParseOptions(printRaw, useInlineCSS, blocking)
 
   val jsonParserActor = actorSystem.actorOf(
-    JsonParserActor.props(parseOptions, mdictMakerRouter), "jsonParserActor"
+    JsonParserActor.props(parseOptions, mdictMakerRouter),
+    "jsonParserActor"
   )
   val mainActor: ActorRef = if (blocking) {
-    actorSystem.actorOf(BlockingInputActor.props(parseOptions, mdictMakerRouter), "jsonActor")
+    actorSystem.actorOf(
+      BlockingInputActor.props(parseOptions, mdictMakerRouter),
+      "jsonActor"
+    )
   } else {
-    actorSystem.actorOf(NonBlockingInputActor.props(parseOptions, jsonParserActor), "jsonActor")
+    actorSystem.actorOf(
+      NonBlockingInputActor.props(parseOptions, jsonParserActor),
+      "jsonActor"
+    )
   }
 
   mainActor ! DoParse(filename)
   Await.ready(actorSystem.whenTerminated, Duration(10, TimeUnit.MINUTES))
 }
-

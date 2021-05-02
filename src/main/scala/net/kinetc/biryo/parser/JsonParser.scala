@@ -1,7 +1,7 @@
 package net.kinetc.biryo.parser
 
 import akka.actor.ActorRef
-import jawn.{AsyncParser, ast}
+import org.typelevel.jawn.{AsyncParser, ast}
 import net.kinetc.biryo.actor.MDictMaker.{FrameDoc, MDictDoc}
 
 object JsonParser {

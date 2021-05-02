@@ -16,15 +16,12 @@ object ExitActor {
 class ExitActor extends Actor {
   import ExitActor._
 
-
   var exitCount = 0
-  def receive = {
-
-    case Exit =>
-      exitCount += 1
-      if (exitCount == shutdownCount) {
-        println("Shutdown Program!")
-        context.system.terminate()
-      }
+  def receive = { case Exit =>
+    exitCount += 1
+    if (exitCount == shutdownCount) {
+      println("Shutdown Program!")
+      context.system.terminate()
+    }
   }
 }

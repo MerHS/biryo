@@ -7,12 +7,15 @@ import net.kinetc.biryo.parser.JsonParser
 import net.kinetc.biryo.parser.JsonParser.ParseOptions
 
 object JsonParserActor {
-  def props(options: ParseOptions, mdictMakerRouter: ActorRef) = Props(new JsonParserActor(options, mdictMakerRouter))
+  def props(options: ParseOptions, mdictMakerRouter: ActorRef) = Props(
+    new JsonParserActor(options, mdictMakerRouter)
+  )
   case object FinishRead
 }
 
 class JsonParserActor(val options: ParseOptions, val mdictMakerRouter: ActorRef)
-  extends Actor with JsonParser {
+    extends Actor
+    with JsonParser {
   import JsonParserActor._
 
   override def receive = {

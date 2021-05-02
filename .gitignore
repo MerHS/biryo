@@ -5,6 +5,9 @@ dist/*
 target/
 lib_managed/
 src_managed/
+project/.bloop
+project/metals.sbt
+project/project
 project/boot/
 project/plugins/project/
 .history
@@ -21,3 +24,8 @@ mdict-data/test.html
 src/main/scala/replay_pid10496.log
 src/main/scala/hs_err_pid10496.log
 src/main/scala/META-INF/MANIFEST.MF
+
+.bloop
+.metals
+.vscode
+.bsp

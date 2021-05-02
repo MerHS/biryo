@@ -2,8 +2,7 @@ package net.kinetc.biryo.renderer
 
 import net.kinetc.biryo.parser.NamuAST
 
-/**
-  * Created by KINETC on 2017-07-28.
+/** Created by KINETC on 2017-07-28.
   */
 class ASTPostProcessor(val title: String) {
   import HTMLRenderer._
@@ -51,41 +50,48 @@ class ASTPostProcessor(val title: String) {
       fnNo += 1
       noteStr match {
         case Some(_) => f
-        case None => FootNote(v, Some(fnNo.toString))
+        case None    => FootNote(v, Some(fnNo.toString))
       }
     case Table(trList, styles) =>
       var tableStyle = List[TableStyle]()
-      for (tr <- trList;
-           td <- tr.valueSeq;
-           style <- td.styles) {
+      for (
+        tr <- trList;
+        td <- tr.valueSeq;
+        style <- td.styles
+      ) {
         style match {
           case f: ForTable => if (f.forTable) tableStyle ::= f
-          case _ => ()
+          case _           => ()
         }
       }
       Table(trList, tableStyle ++ styles)
     case TR(tdList, styles) =>
       var trStyle = List[TableStyle]()
-      for (td <- tdList;
-           style <- td.styles) {
+      for (
+        td <- tdList;
+        style <- td.styles
+      ) {
         style match {
           case f: RowBgColor => trStyle ::= f
-          case _ => ()
+          case _             => ()
         }
       }
       TR(tdList, trStyle ++ styles)
     case TD(nm, styles) =>
-      TD(nm, styles.filterNot {
-        case f: ForTable => f.forTable
-        case RowBgColor(_) => true
-        case _ => false
-      })
+      TD(
+        nm,
+        styles.filterNot {
+          case f: ForTable   => f.forTable
+          case RowBgColor(_) => true
+          case _             => false
+        }
+      )
   }
 
   protected def findHeadings(mark: NamuMark): Unit = {
     mark match {
       case RawHeadings(_, s) => if (s < hMin) hMin = s
-      case _ => ()
+      case _                 => ()
     }
   }
 
@@ -93,14 +99,20 @@ class ASTPostProcessor(val title: String) {
   protected def hrefProcessor(href: NamuHref): NamuHref = {
     href match {
       case NormalHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
-      case ParaHref(value, paraNo) if value == title => hrefProcessor(SelfParaHref(paraNo))
-      case ParaHref(value, paraNo) => RawHref(value, s"entry://${href.escapeValue}#s-${paraNo.mkString(".")}")
-      case AnchorHref(value, anchor) if value == title => hrefProcessor(SelfAnchorHref(anchor))
-      case AnchorHref(value, anchor) => RawHref(value, s"entry://${href.escapeValue}#${escapeURL(anchor)}")
-      case SelfParaHref(_) | SelfAnchorHref(_) => RawHref(href.value, s"entry://${href.escapeValue}")
+      case ParaHref(value, paraNo) if value == title =>
+        hrefProcessor(SelfParaHref(paraNo))
+      case ParaHref(value, paraNo) =>
+        RawHref(value, s"entry://${href.escapeValue}#s-${paraNo.mkString(".")}")
+      case AnchorHref(value, anchor) if value == title =>
+        hrefProcessor(SelfAnchorHref(anchor))
+      case AnchorHref(value, anchor) =>
+        RawHref(value, s"entry://${href.escapeValue}#${escapeURL(anchor)}")
+      case SelfParaHref(_) | SelfAnchorHref(_) =>
+        RawHref(href.value, s"entry://${href.escapeValue}")
       case SuperDocHref =>
         val newHref =
-          if (title.contains('/')) title.split("/").init.mkString("/") else title
+          if (title.contains('/')) title.split("/").init.mkString("/")
+          else title
         RawHref(newHref, s"entry://${escapeURL(newHref)}")
       case ChildDocHref(h) =>
         val childVal = hrefProcessor(h).value.replaceAll("entry://", "")
