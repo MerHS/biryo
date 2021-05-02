@@ -117,11 +117,13 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef)
   }
 
   def receive = {
-    case MDictDoc(title, text, printRaw) =>
+    case MDictDoc(title, text, printRaw) => {
       if (printRaw)
         makeRawHtml(title, text)
       else
         makeMDictHtml(title, text)
+    }
+
     case FrameDoc(title, text) =>
       makeFrameJS(title, text)
     case ParseEnd =>

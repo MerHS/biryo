@@ -5,7 +5,11 @@ import org.typelevel.jawn.{AsyncParser, ast}
 import net.kinetc.biryo.actor.MDictMaker.{FrameDoc, MDictDoc}
 
 object JsonParser {
-  final case class ParseOptions(printRaw: Boolean, useInlineCSS: Boolean, blocking: Boolean)
+  final case class ParseOptions(
+      printRaw: Boolean,
+      useInlineCSS: Boolean,
+      blocking: Boolean
+  )
   final case class DoParse(fileName: String)
 }
 
@@ -18,7 +22,12 @@ trait JsonParser {
   var docCount = 0
   val p = ast.JParser.async(mode = AsyncParser.UnwrapArray)
 
-  protected def sendMDictData(title: String, text: String, prefix: String, isFrame: Boolean): Unit = {
+  protected def sendMDictData(
+      title: String,
+      text: String,
+      prefix: String,
+      isFrame: Boolean
+  ): Unit = {
     if (!options.printRaw && !options.useInlineCSS && isFrame) {
       mdictMakerRouter ! FrameDoc(title, text)
     }
@@ -32,17 +41,35 @@ trait JsonParser {
 
   protected def makeMDict(js: ast.JValue): Unit = {
     var isFrame = false
-    val prefix = js.get("namespace").getString match {
-      case Some("0") => ""
-      case Some("1") => isFrame = true; "틀:"
-      case Some("2") => "분류:"
-      case Some("6") => "나무위키:"
-      case _ => return
+
+    val namespace = js.get("namespace")
+    val prefix = namespace.getInt match {
+      case Some(0) => ""
+      case Some(1) => isFrame = true; "틀:"
+      case Some(2) => "분류:"
+      case Some(6) => "나무위키:"
+      case _ => {
+        // fall back to string
+        namespace.getString match {
+          case Some("0") => ""
+          case Some("1") => isFrame = true; "틀:"
+          case Some("2") => "분류:"
+          case Some("6") => "나무위키:"
+          case _ => {
+            println(
+              s"json namespace error: ${js.get("title")} / ${js.get("namespace")}"
+            )
+            return
+          }
+        }
+      }
     }
     (js.get("title").getString, js.get("text").getString) match {
       case (Some(title), Some(text)) =>
         sendMDictData(title, text, prefix, isFrame)
-      case _ => ()
+      case _ => {
+        println(s"json parse error: ${js.get("title")} / ${js.get("text")}")
+      }
     }
   }
 
