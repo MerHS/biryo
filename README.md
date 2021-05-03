@@ -162,6 +162,8 @@ mdd를 읽지 못하는 일부 기기를 위해 CSS 코드가 각 항목마다 �
 
 3. -raw: 나무마크를 파싱하지 않고 나무위키 문법이 그대로 적힌 문서를 만듭니다.
 
+4. -timeout (숫자): n분 후에 강제종료됩니다.
+
 ## TODO
 
 - Fix Bugs (especially Tables)

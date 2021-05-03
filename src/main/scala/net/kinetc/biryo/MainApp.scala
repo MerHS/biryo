@@ -33,6 +33,7 @@ object MainApp extends App {
   var useInlineCSS = false
   var printRaw = false
   var blocking = true
+  var timeout = -1
   var poolSize = {
     val coreSize = Runtime.getRuntime.availableProcessors
     if (coreSize == 1)
@@ -41,6 +42,27 @@ object MainApp extends App {
       3
     else
       coreSize - 3
+  }
+
+  def parseNum(argName: String): Int = {
+    val argPos = args.indexOf(argName)
+    var argVal: Int = 0
+    if (
+      argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)
+    ) {
+      argVal = args(argPos + 1).toInt
+      if (argVal <= 0) {
+        throw new IllegalArgumentException(
+          s"error: $argName 값이 2 미만입니다\n$helpText"
+        )
+      }
+    } else {
+      throw new IllegalArgumentException(
+        s"error: $argName 값에 오류가 있습니다\n$helpText"
+      )
+    }
+
+    argVal
   }
 
   if (args.length == 0) {
@@ -56,23 +78,11 @@ object MainApp extends App {
   if (args.contains("-nonblock")) {
     // blocking = false
   }
+  if (args.contains("-timeout")) {
+    timeout = parseNum("-timeout")
+  }
   if (args.contains("-thread")) {
-    val argPos = args.indexOf("-thread")
-
-    if (
-      argPos + 1 < args.length && (args(argPos + 1) forall Character.isDigit)
-    ) {
-      poolSize = args(argPos + 1).toInt - 1
-      if (poolSize <= 0) {
-        throw new IllegalArgumentException(
-          s"error: -thread 값이 2 미만입니다\n$helpText"
-        )
-      }
-    } else {
-      throw new IllegalArgumentException(
-        s"error: -thread 값에 오류가 있습니다\n$helpText"
-      )
-    }
+    poolSize = parseNum("-thread") - 1
   }
 
   ExitActor.shutdownCount = poolSize * 2
@@ -156,4 +166,7 @@ object MainApp extends App {
   }
 
   mainActor ! DoParse(filename)
+
+  if (timeout > 0)
+    Await.ready(actorSystem.whenTerminated, Duration(timeout, TimeUnit.MINUTES))
 }
