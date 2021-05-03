@@ -156,5 +156,4 @@ object MainApp extends App {
   }
 
   mainActor ! DoParse(filename)
-  Await.ready(actorSystem.whenTerminated, Duration(10, TimeUnit.MINUTES))
 }
