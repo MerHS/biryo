@@ -77,7 +77,6 @@ class HTMLRenderer(private val katex: KatexRenderer) {
   protected var fnLoc = 0
   protected var headings: List[Headings] = List()
   protected var includes: List[(Include, String)] = List()
-  protected var hasMathBlock: Boolean = false
   protected var isRedirect: Boolean = false
   protected var headListExists: Boolean = false
 
@@ -104,8 +103,7 @@ class HTMLRenderer(private val katex: KatexRenderer) {
         "<a name=\"bottom\"></a>" +
         "</body>" +
         includeScriptListRenderer(includes) +
-        """<script src="after.js"></script>""" +
-        (if (hasMathBlock) """<script src="mathafter.js"></script>""" else "")
+        """<script src="after.js"></script>"""
     }
   }
 
@@ -185,11 +183,6 @@ class HTMLRenderer(private val katex: KatexRenderer) {
       if (useInlineCSS)
         s"<style>\n$inlineStyle\n</style>"
       else
-        (
-          if (hasMathBlock)
-            """<link rel="stylesheet" type="text/css" href="katex.min.css" />"""
-          else ""
-        ) +
           s"""
           |<style>.$foldingClass dd { display: none; }</style>
           |<link rel="stylesheet" type="text/css" href="biryo.css" />

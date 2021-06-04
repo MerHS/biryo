@@ -57,7 +57,7 @@ trait JsonParser {
           case Some("6") => "나무위키:"
           case _ => {
             println(
-              s"json namespace error: ${js.get("title")} / ${js.get("namespace")}"
+              s"json namespace error: ${js.get("title").getString} / ${js.get("namespace")}"
             )
             return
           }
