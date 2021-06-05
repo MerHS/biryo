@@ -355,10 +355,10 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         ignoreCase("table") ~ WL.? ~
           (
             (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v =>
-              NA.BorderColor(v, forTable = true)
+              NA.BorderColor(v.split(",")(0), forTable = true)
             )) |
               (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v =>
-                NA.BgColor(v, forTable = true)
+                NA.BgColor(v.split(",")(0), forTable = true)
               )) |
               (ignoreCase("align=") ~ UnquoteStr ~>
                 ((v: String) => {
@@ -401,13 +401,13 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         (
           // Parsing Table Cell Style
           (ignoreCase("bordercolor=") ~ UnquoteStr ~> (v =>
-            NA.BorderColor(v, forTable = false)
+            NA.BorderColor(v.split(",")(0), forTable = false)
           )) |
             (ignoreCase("rowbgcolor=") ~ UnquoteStr ~> (v =>
-              NA.RowBgColor(v)
+              NA.RowBgColor(v.split(",")(0))
             )) |
             (ignoreCase("bgcolor=") ~ UnquoteStr ~> (v =>
-              NA.BgColor(v, forTable = false)
+              NA.BgColor(v.split(",")(0), forTable = false)
             )) |
             (ignoreCase("width=") ~ UnquoteStr ~> (v =>
               NA.Width(v, forTable = false)
@@ -478,7 +478,7 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def LineStartMacro: Rule1[NM] = rule { FootNoteList | TableOfContents }
   def OtherMacro: Rule1[NM] = rule {
-    BR | Anchor | Include | YoutubeLink | KakaoLink | NicoLink | Age | DateMacro | DDay | PageCount | RubyMacro
+    BR | Anchor | Include | YoutubeLink | KakaoLink | NicoLink | Age | DateMacro | DDay | PageCount | RubyMacro | Clearfix
   }
 
   def PageCount = rule { PageCountAll | PageCountNamespaced }
@@ -554,6 +554,9 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
         NA.RubyMacro(str, ruby, if (color == "") None else Some(color))
       }
     )
+  }
+  def Clearfix = rule {
+    ICCommandStr("[clearfix]") ~ push(NA.Clearfix)
   }
 
   // Rule 4. Links & Anchors (Double Brackets)
@@ -683,12 +686,18 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
     ColorRGBBlock | ColorTextBlock | SizeBlock
   }
 
+  def ColorCode = rule {
+    (6.times(CharPredicate.HexDigit) ~ ' ') |
+      (3.times(CharPredicate.HexDigit) ~ ' ') |
+      (CharPredicate.Alpha.+ ~ ' ')
+  }
+
   def ColorRGBBlock = rule {
     CommandStr("{{{#") ~
-      (
-        (capture(3.times(CharPredicate.HexDigit)) ~ ' ') |
-          (capture(6.times(CharPredicate.HexDigit)) ~ ' ')
-      ) ~
+      ((capture(6.times(CharPredicate.HexDigit)) ~ (' ' | (',' ~ ColorCode))) |
+        (capture(
+          3.times(CharPredicate.HexDigit)
+        ) ~ (' ' | (',' ~ ColorCode)))) ~
       LineTermEndWith("}}}") ~ CommandStr("}}}") ~> ((s: String, nm: NM) =>
         NA.ColorBlock(nm, "#" + s)
       )
@@ -696,18 +705,18 @@ class WikiParser(val input: ParserInput) extends Parser with StringBuilding {
 
   def ColorTextBlock = rule {
     CommandStr("{{{#") ~
-      (
-        capture(CharPredicate.Alpha.+) ~ ' '
-      ) ~
+      capture(CharPredicate.Alpha.+) ~
+      (' ' | (',' ~ ColorCode)) ~
       LineTermEndWith("}}}") ~ CommandStr("}}}") ~> ((s: String, nm: NM) =>
         NA.ColorBlock(nm, s)
       )
   }
 
   def SizeBlock: Rule1[NM] = rule {
-    CommandStr("{{{+") ~ capture(CharPredicate("12345")) ~ ' ' ~
+    ((CommandStr("{{{+")) ~ push(1) | (CommandStr("{{{-") ~ push(-1))) ~
+      capture(CharPredicate("12345")) ~ ' ' ~
       LineTermEndWith("}}}") ~ CommandStr("}}}") ~>
-      ((s: String, nm: NM) => NA.SizeBlock(nm, s.toInt))
+      ((sign: Int, s: String, nm: NM) => NA.SizeBlock(nm, sign * s.toInt))
   }
 
   def WordBox = rule { MatchBlock("{{|", "|}}") ~> NA.WordBox }

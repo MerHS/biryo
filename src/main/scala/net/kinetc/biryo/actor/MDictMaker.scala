@@ -72,7 +72,7 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef)
       case Success(Some(compiledText)) =>
         printActor ! PrintText(compiledText)
       case _ =>
-        printActor ! GetError(title)
+        printActor ! GetError(title, text)
     }
   }
 
@@ -112,7 +112,7 @@ class MDictMaker(printActor: ActorRef, framePrinterActor: ActorRef)
       case Success(Some(compiledText)) =>
         framePrinterActor ! MakeJSFile(title, compiledText)
       case _ =>
-        printActor ! GetError(s"$title - frame")
+        printActor ! GetError(s"$title - frame", text)
     }
   }
 

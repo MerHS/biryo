@@ -521,6 +521,10 @@ object NamuAST {
     }
   }
 
+  case object Clearfix extends NamuMark {
+    override def mkString = "<div style=\"clear:both\"></div>"
+  }
+
   /// ===== Double Bracket Links =====a ///
 
   // [[파일:$href|$htmlOption]]

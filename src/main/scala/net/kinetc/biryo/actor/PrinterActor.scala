@@ -12,7 +12,7 @@ object PrinterActor {
     new PrinterActor(path, exitActor)
   )
   final case class PrintText(text: String)
-  final case class GetError(title: String)
+  final case class GetError(title: String, text: String)
   case object Close
 }
 
@@ -25,7 +25,7 @@ class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
   var time = new Date()
   var closeCount = 0
 
-  var errorList = List[String]()
+  var errorList = List[(String, String)]()
 
   def receive = {
     case PrintText(text) =>
@@ -43,17 +43,12 @@ class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
         time = newTime
       }
     case Close =>
-//      closeCount += 1
-//      if (closeCount == 3) {
-//        println("close file")
-//        pathFile.close()
-//      }
       exitActor ! ExitActor.Exit
-    case GetError(title) =>
+    case GetError(title, text) =>
       println(
         s"#################### TIMEOUT WHILE PARSING: $title ####################"
       )
-      errorList ::= title
+      errorList = (title, text) :: errorList
   }
 
   override def postStop(): Unit = {
@@ -61,9 +56,11 @@ class PrinterActor(path: String, exitActor: ActorRef) extends Actor {
     if (errorList.nonEmpty) {
       val errorLog =
         new PrintWriter(s"error_${System.currentTimeMillis()}.log", "UTF-8")
-      errorList.foreach(e => {
-        println("parseError: " + e)
-        errorLog.println(s"Parse Error / Timeout: $e")
+      errorList.foreach({
+        case (title, text) => {
+          println("parseError: " + title)
+          errorLog.println(s"Parse Error / Timeout: $title\n$text")
+        }
       })
       errorLog.close()
     }
